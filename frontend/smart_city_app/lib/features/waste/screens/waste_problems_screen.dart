@@ -425,16 +425,7 @@ class _WasteProblemsScreenState extends State<WasteProblemsScreen> {
                             _options('status'),
                             (value) => setState(() => _status = value),
                           ),
-                          const Padding(
-                            padding: EdgeInsets.only(bottom: 16),
-                            child: TextField(
-                              enabled: false,
-                              decoration: InputDecoration(
-                                labelText: 'Waste type',
-                                hintText: 'Not available yet',
-                              ),
-                            ),
-                          ),
+
                           _dropdown(
                             'Priority',
                             _priority,
