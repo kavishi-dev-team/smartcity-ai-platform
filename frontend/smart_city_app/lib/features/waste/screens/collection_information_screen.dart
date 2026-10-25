@@ -1,5 +1,7 @@
-import 'package:smart_city_app/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
+import 'package:smart_city_app/core/theme/app_colors.dart';
+
+import '../services/collection_services.dart';
 
 class CollectionInformationScreen extends StatefulWidget {
   const CollectionInformationScreen({super.key});
@@ -11,62 +13,67 @@ class CollectionInformationScreen extends StatefulWidget {
 
 class _CollectionInformationScreenState
     extends State<CollectionInformationScreen> {
-  String _selectedArea = 'Colombo 07';
+  final _service = CollectionService();
 
-  static const _blue = AppColors.primary;
-  static const _navy = AppColors.text;
-  static const _muted = AppColors.muted;
+  List<Map<String, dynamic>> _schedules = [];
+  String? _selectedArea;
+  bool _loading = true;
+  String? _error;
 
-  static const List<Map<String, String>> _schedules = [
-    {
-      'area': 'Colombo 07',
-      'type': 'General waste',
-      'day': 'Monday & Thursday',
-      'time': '7:00 AM – 10:00 AM',
-    },
-    {
-      'area': 'Colombo 07',
-      'type': 'Recyclable waste',
-      'day': 'Saturday',
-      'time': '8:00 AM – 11:00 AM',
-    },
-    {
-      'area': 'Nugegoda',
-      'type': 'General waste',
-      'day': 'Tuesday & Friday',
-      'time': '7:00 AM – 10:00 AM',
-    },
-    {
-      'area': 'Nugegoda',
-      'type': 'Recyclable waste',
-      'day': 'Sunday',
-      'time': '8:00 AM – 11:00 AM',
-    },
-    {
-      'area': 'Homagama',
-      'type': 'General waste',
-      'day': 'Monday & Friday',
-      'time': '6:30 AM – 9:30 AM',
-    },
-    {
-      'area': 'Homagama',
-      'type': 'Recyclable waste',
-      'day': 'Wednesday',
-      'time': '8:00 AM – 11:00 AM',
-    },
-    {
-      'area': 'Maharagama',
-      'type': 'General waste',
-      'day': 'Wednesday & Saturday',
-      'time': '7:00 AM – 10:00 AM',
-    },
-    {
-      'area': 'Maharagama',
-      'type': 'Recyclable waste',
-      'day': 'Thursday',
-      'time': '8:00 AM – 11:00 AM',
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadSchedules();
+  }
+
+  List<String> get _areas {
+    final areas =
+        _schedules
+            .map((schedule) => schedule['area'].toString())
+            .toSet()
+            .toList()
+          ..sort();
+
+    return areas;
+  }
+
+  Future<void> _loadSchedules() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      final schedules = await _service.getSchedules();
+
+      if (!mounted) return;
+
+      setState(() {
+        _schedules = schedules;
+
+        final areas = _areas;
+        if (!areas.contains(_selectedArea)) {
+          _selectedArea = areas.isEmpty ? null : areas.first;
+        }
+
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+
+      setState(() {
+        _loading = false;
+        _error =
+            'Could not load collection schedules. '
+            'Check that the backend is running and try again.';
+      });
+    }
+  }
+
+  String _text(Map<String, dynamic> schedule, String field, String fallback) {
+    final value = schedule[field]?.toString().trim() ?? '';
+    return value.isEmpty ? fallback : value;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -77,10 +84,20 @@ class _CollectionInformationScreenState
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Collection information'),
+        title: const Text(
+          'Collection information',
+          style: TextStyle(color: AppColors.text),
+        ),
         backgroundColor: AppColors.card,
-        foregroundColor: _navy,
+        foregroundColor: AppColors.text,
         surfaceTintColor: Colors.transparent,
+        actions: [
+          IconButton(
+            tooltip: 'Refresh schedules',
+            onPressed: _loading ? null : _loadSchedules,
+            icon: const Icon(Icons.refresh),
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
@@ -93,7 +110,7 @@ class _CollectionInformationScreenState
                 const Text(
                   'Collection schedules',
                   style: TextStyle(
-                    color: _navy,
+                    color: AppColors.text,
                     fontSize: 26,
                     fontWeight: FontWeight.bold,
                   ),
@@ -101,76 +118,78 @@ class _CollectionInformationScreenState
                 const SizedBox(height: 8),
                 const Text(
                   'Choose an area to view its collection schedule.',
-                  style: TextStyle(color: _muted, height: 1.5),
+                  style: TextStyle(color: AppColors.muted, height: 1.5),
                 ),
                 const SizedBox(height: 16),
                 Container(
+                  width: double.infinity,
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: const Color(0xFFFFF5DB),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Text(
-                    'Demo schedules only. These are fictional times '
-                    'for testing, not official collection schedules.',
+                    'Test schedules are not official collection times. '
+                    'Confirm collection arrangements with your local authority.',
                     style: TextStyle(color: Color(0xFF854D0E), height: 1.5),
                   ),
                 ),
                 const SizedBox(height: 24),
-                DropdownButtonFormField<String>(
-                  initialValue: _selectedArea,
-                  isExpanded: true,
-                  decoration: InputDecoration(
-                    labelText: 'Select area',
-                    prefixIcon: const Icon(Icons.location_on_outlined),
-                    filled: true,
-                    fillColor: AppColors.card,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+                if (_loading)
+                  const Padding(
+                    padding: EdgeInsets.all(30),
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                else if (_error != null) ...[
+                  Text(_error!, style: const TextStyle(color: AppColors.error)),
+                  const SizedBox(height: 12),
+                  ElevatedButton.icon(
+                    onPressed: _loadSchedules,
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Retry'),
+                  ),
+                ] else if (_schedules.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 24),
+                    child: Text(
+                      'No collection schedules available yet.',
+                      style: TextStyle(color: AppColors.muted),
+                    ),
+                  )
+                else ...[
+                  DropdownButtonFormField<String>(
+                    key: ValueKey(_selectedArea),
+                    initialValue: _selectedArea,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Select area',
+                      prefixIcon: Icon(Icons.location_on_outlined),
+                    ),
+                    items: _areas.map((area) {
+                      return DropdownMenuItem(value: area, child: Text(area));
+                    }).toList(),
+                    onChanged: (value) {
+                      if (value == null) return;
+                      setState(() => _selectedArea = value);
+                    },
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    'Schedules for $_selectedArea',
+                    style: const TextStyle(
+                      color: AppColors.text,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                  items: const [
-                    DropdownMenuItem(
-                      value: 'Colombo 07',
-                      child: Text('Colombo 07'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'Nugegoda',
-                      child: Text('Nugegoda'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'Homagama',
-                      child: Text('Homagama'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'Maharagama',
-                      child: Text('Maharagama'),
-                    ),
-                  ],
-                  onChanged: (value) {
-                    if (value == null) return;
-
-                    setState(() {
-                      _selectedArea = value;
-                    });
-                  },
-                ),
+                  const SizedBox(height: 14),
+                  ...schedules.map(_scheduleCard),
+                ],
                 const SizedBox(height: 24),
-                Text(
-                  'Schedules for $_selectedArea',
-                  style: const TextStyle(
-                    color: _navy,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 14),
-                ...schedules.map(_scheduleCard),
-                const SizedBox(height: 12),
                 const Text(
                   'Collection preparation',
                   style: TextStyle(
-                    color: _navy,
+                    color: AppColors.text,
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
                   ),
@@ -188,7 +207,7 @@ class _CollectionInformationScreenState
                     '• Close waste bags securely.\n\n'
                     '• Keep the collection point accessible.\n\n'
                     '• Follow your local authority’s instructions.',
-                    style: TextStyle(color: _muted, height: 1.5),
+                    style: TextStyle(color: AppColors.muted, height: 1.5),
                   ),
                 ),
               ],
@@ -199,8 +218,8 @@ class _CollectionInformationScreenState
     );
   }
 
-  Widget _scheduleCard(Map<String, String> schedule) {
-    final isRecycling = schedule['type'] == 'Recyclable waste';
+  Widget _scheduleCard(Map<String, dynamic> schedule) {
+    final instructions = _text(schedule, 'instructions', '');
 
     return Container(
       width: double.infinity,
@@ -216,16 +235,13 @@ class _CollectionInformationScreenState
         children: [
           Row(
             children: [
-              Icon(
-                isRecycling ? Icons.recycling : Icons.delete_outline,
-                color: _blue,
-              ),
+              const Icon(Icons.delete_outline, color: AppColors.primary),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  schedule['type']!,
+                  _text(schedule, 'waste_types', 'Waste collection'),
                   style: const TextStyle(
-                    color: _navy,
+                    color: AppColors.text,
                     fontSize: 17,
                     fontWeight: FontWeight.bold,
                   ),
@@ -235,11 +251,24 @@ class _CollectionInformationScreenState
           ),
           const SizedBox(height: 16),
           Text(
-            schedule['day']!,
-            style: const TextStyle(color: _navy, fontWeight: FontWeight.w600),
+            _text(schedule, 'collection_day', 'Day not specified'),
+            style: const TextStyle(
+              color: AppColors.text,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           const SizedBox(height: 8),
-          Text(schedule['time']!, style: const TextStyle(color: _muted)),
+          Text(
+            _text(schedule, 'collection_time', 'Time not specified'),
+            style: const TextStyle(color: AppColors.muted),
+          ),
+          if (instructions.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Text(
+              instructions,
+              style: const TextStyle(color: AppColors.muted, height: 1.5),
+            ),
+          ],
         ],
       ),
     );
