@@ -106,4 +106,54 @@ class EnergyWaterProvider extends ChangeNotifier {
     _waterPriority = value;
     loadWaterIssues();
   }
+
+    // ---------- Leakage ----------
+  List<WaterIssue> _leakageIssues = [];
+  bool _leakageLoading = false;
+  String? _leakageError;
+  String _leakageSearch = '';
+  String? _leakageStatus;
+  String? _leakageSeverity;
+
+  List<WaterIssue> get leakageIssues => _leakageIssues;
+  bool get leakageLoading => _leakageLoading;
+  String? get leakageError => _leakageError;
+  String? get leakageStatus => _leakageStatus;
+  String? get leakageSeverity => _leakageSeverity;
+
+  Future<void> loadLeakageIssues() async {
+    _leakageLoading = true;
+    _leakageError = null;
+    notifyListeners();
+
+    try {
+      // Severity is mapped to priority for now.
+      _leakageIssues = await _service.fetchWaterIssues(
+        search: _leakageSearch,
+        status: _leakageStatus,
+        priority: _leakageSeverity,
+        leakageOnly: true,
+      );
+    } catch (e) {
+      _leakageError = 'Failed to load leakage reports';
+    } finally {
+      _leakageLoading = false;
+      notifyListeners();
+    }
+  }
+
+  void setLeakageSearch(String value) {
+    _leakageSearch = value;
+    loadLeakageIssues();
+  }
+
+  void setLeakageStatus(String? value) {
+    _leakageStatus = value;
+    loadLeakageIssues();
+  }
+
+  void setLeakageSeverity(String? value) {
+    _leakageSeverity = value;
+    loadLeakageIssues();
+  }
 }
