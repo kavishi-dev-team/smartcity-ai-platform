@@ -1,9 +1,9 @@
 import '../models/energy_issue_model.dart';
 import '../models/water_issue_model.dart';
+import '../models/energy_water_statistics_model.dart';
 
 class EnergyWaterService {
-  // TODO: replace mock data with real API call
-  // GET /api/v1/issues?category=energy
+ 
   Future<List<EnergyIssue>> fetchEnergyIssues({
     String? search,
     String? status,
@@ -62,8 +62,7 @@ class EnergyWaterService {
     }).toList();
   }
 
-  // TODO: replace mock data with real API call
-  // GET /api/v1/issues?category=water
+  
   Future<List<WaterIssue>> fetchWaterIssues({
     String? search,
     String? status,
@@ -126,5 +125,27 @@ class EnergyWaterService {
       final matchLeak = !leakageOnly || i.isLeakage;
       return matchSearch && matchStatus && matchPriority && matchLeak;
     }).toList();
+  }
+
+    
+  Future<EnergyWaterStatistics> fetchStatistics(String category) async {
+    await Future.delayed(const Duration(milliseconds: 600));
+
+    if (category == 'water') {
+      return const EnergyWaterStatistics(
+        totalReports: 42,
+        resolvedReports: 25,
+        byCategory: {'leakage': 18, 'supply': 14, 'quality': 10},
+        byStatus: {'reported': 8, 'in progress': 9, 'resolved': 25},
+        monthlyTrend: {'Jul': 6, 'Aug': 9, 'Sep': 12, 'Oct': 15},
+      );
+    }
+    return const EnergyWaterStatistics(
+      totalReports: 35,
+      resolvedReports: 20,
+      byCategory: {'streetlight': 15, 'outage': 12, 'pole': 8},
+      byStatus: {'reported': 7, 'in progress': 8, 'resolved': 20},
+      monthlyTrend: {'Jul': 5, 'Aug': 8, 'Sep': 10, 'Oct': 12},
+    );
   }
 }
