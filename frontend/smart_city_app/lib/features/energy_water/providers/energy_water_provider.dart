@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../models/energy_issue_model.dart';
 import '../models/water_issue_model.dart';
 import '../services/energy_water_service.dart';
+import '../models/energy_water_statistics_model.dart';
 
 class EnergyWaterProvider extends ChangeNotifier {
   final EnergyWaterService _service;
@@ -155,5 +156,36 @@ class EnergyWaterProvider extends ChangeNotifier {
   void setLeakageSeverity(String? value) {
     _leakageSeverity = value;
     loadLeakageIssues();
+  }
+
+    // ---------- Statistics ----------
+  EnergyWaterStatistics? _stats;
+  bool _statsLoading = false;
+  String? _statsError;
+  String _statsCategory = 'energy';
+
+  EnergyWaterStatistics? get stats => _stats;
+  bool get statsLoading => _statsLoading;
+  String? get statsError => _statsError;
+  String get statsCategory => _statsCategory;
+
+  Future<void> loadStatistics() async {
+    _statsLoading = true;
+    _statsError = null;
+    notifyListeners();
+
+    try {
+      _stats = await _service.fetchStatistics(_statsCategory);
+    } catch (e) {
+      _statsError = 'Failed to load statistics';
+    } finally {
+      _statsLoading = false;
+      notifyListeners();
+    }
+  }
+
+  void setStatsCategory(String value) {
+    _statsCategory = value;
+    loadStatistics();
   }
 }
