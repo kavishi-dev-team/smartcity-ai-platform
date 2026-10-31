@@ -1,9 +1,28 @@
 from fastapi import FastAPI
 
+from app.api.v1.endpoints.issues import router as issues_router
+from fastapi.middleware.cors import CORSMiddleware
+from app.api.v1.endpoints.collection_schedules import (
+    router as collection_schedules_router,
+)
 app = FastAPI(
     title="Smart City AI Platform API",
     description="Backend API for the Smart City Management Platform",
     version="1.0.0",
+)
+app.include_router(issues_router, prefix="/api/v1")
+app.include_router(collection_schedules_router, prefix="/api/v1")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origin_regex=r"http://(localhost|127\.0\.0\.1)(:\d+)?",
+    allow_credentials=False,
+    allow_methods=["GET"],
+    allow_headers=["*"],
+)
+app.include_router(
+    collection_schedules_router,
+    prefix="/api/v1",
 )
 
 
