@@ -250,7 +250,7 @@ class _WasteProblemsScreenState extends State<WasteProblemsScreen> {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text('Waste'),
-        backgroundColor: AppColors.card,
+        backgroundColor: const Color.fromARGB(255, 210, 198, 198),
         foregroundColor: AppColors.text,
         actions: [
           IconButton(
@@ -571,7 +571,7 @@ class _WasteProblemsScreenState extends State<WasteProblemsScreen> {
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(vertical: 8),
       title: Text(
-        '#${issue['id']} • ${issue['title']}',
+        issue['title'] ?? 'Waste issue',
         style: const TextStyle(
           color: AppColors.text,
           fontWeight: FontWeight.w600,
