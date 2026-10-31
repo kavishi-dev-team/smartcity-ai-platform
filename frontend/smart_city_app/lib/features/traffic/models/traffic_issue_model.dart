@@ -173,3 +173,46 @@ String trafficLabel(String value) => value
     .where((part) => part.isNotEmpty)
     .map((part) => '${part[0].toUpperCase()}${part.substring(1)}')
     .join(' ');
+
+/// A map pin based on a real traffic issue and its most recent valid location.
+class TrafficMapMarker {
+  final int id;
+  final String title;
+  final String status;
+  final String priority;
+  final TrafficLocation location;
+
+  const TrafficMapMarker({
+    required this.id,
+    required this.title,
+    required this.status,
+    required this.priority,
+    required this.location,
+  });
+
+  factory TrafficMapMarker.fromJson(Map<String, dynamic> json) {
+    return TrafficMapMarker(
+      id: json['id'] as int,
+      title: json['title'] as String,
+      status: json['status'] as String,
+      priority: json['priority'] as String,
+      location: TrafficLocation.fromJson(json['location'] as Map<String, dynamic>),
+    );
+  }
+}
+
+class TrafficMapPage {
+  final List<TrafficMapMarker> items;
+  final int total;
+  final int limit;
+
+  const TrafficMapPage({required this.items, required this.total, required this.limit});
+
+  factory TrafficMapPage.fromJson(Map<String, dynamic> json) => TrafficMapPage(
+    items: (json['items'] as List<dynamic>)
+        .map((item) => TrafficMapMarker.fromJson(item as Map<String, dynamic>))
+        .toList(),
+    total: json['total'] as int,
+    limit: json['limit'] as int,
+  );
+}
