@@ -8,6 +8,7 @@ import '../services/traffic_service.dart';
 import '../widgets/traffic_filter_sheet.dart';
 import '../widgets/traffic_issue_card.dart';
 import 'traffic_problem_details_screen.dart';
+import 'traffic_incident_map_screen.dart';
 
 class TrafficProblemsScreen extends StatefulWidget {
   final TrafficService? service;
@@ -117,9 +118,19 @@ class _TrafficProblemsScreenState extends State<TrafficProblemsScreen> {
                       icon: const Icon(Icons.tune),
                       label: Text(_provider.filters.isActive ? 'Filters applied' : 'Filters'),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 6),
+                    OutlinedButton.icon(
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => TrafficIncidentMapScreen(service: _service),
+                        ),
+                      ),
+                      icon: const Icon(Icons.map_outlined),
+                      label: const Text('Map'),
+                    ),
+                    const SizedBox(width: 6),
                     if (_provider.filters.isActive)
-                      TextButton(onPressed: _clearAll, child: const Text('Clear all')),
+                      IconButton(tooltip: 'Clear filters', onPressed: _clearAll, icon: const Icon(Icons.filter_alt_off_outlined)),
                     const Spacer(),
                     if (!_provider.loading)
                       Text('${_provider.total} reports',
