@@ -86,6 +86,14 @@ class TrafficService {
     return TrafficIssueDetail.fromJson(await _get(uri));
   }
 
+  Future<TrafficMapPage> getMapMarkers({String status = '', String city = ''}) async {
+    final params = <String, String>{};
+    if (status.trim().isNotEmpty) params['status'] = status.trim();
+    if (city.trim().isNotEmpty) params['city'] = city.trim();
+    final uri = Uri.parse('$baseUrl/traffic/map').replace(queryParameters: params);
+    return TrafficMapPage.fromJson(await _get(uri));
+  }
+
   void dispose() {
     if (_ownsClient) _client.close();
   }
