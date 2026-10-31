@@ -49,3 +49,16 @@ class TrafficIssueDetailOut(TrafficIssueOut):
     status_history: list[TrafficHistoryOut] = Field(default_factory=list)
     ai_summary: str | None = None
     similar_issues: list[TrafficIssueOut] = Field(default_factory=list)
+
+class TrafficMapMarkerOut(BaseModel):
+    id: int
+    title: str
+    status: str
+    priority: str
+    location: TrafficLocationOut
+
+
+class TrafficMapOut(BaseModel):
+    items: list[TrafficMapMarkerOut]
+    total: int
+    limit: int
