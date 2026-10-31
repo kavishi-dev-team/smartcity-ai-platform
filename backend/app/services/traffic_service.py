@@ -16,6 +16,8 @@ from app.schemas.traffic import (
     TrafficListOut,
     TrafficLocationOut,
     TrafficPhotoOut,
+    TrafficMapMarkerOut,
+    TrafficMapOut,
 )
 
 
@@ -149,4 +151,43 @@ def get_traffic_issue(db: Session, issue_id: int) -> TrafficIssueDetailOut | Non
         ) for h in history],
         ai_summary=ai_analysis.explanation if ai_analysis else None,
         similar_issues=[_issue(r, related_locations.get(r.id), None) for r in related],
+    )
+
+
+def list_traffic_map_markers(db: Session, *, status: str | None = None, city: str | None = None, limit: int = 500) -> TrafficMapOut:
+    """Latest valid coordinates of active traffic reports; persisted MySQL data only."""
+    # One marker per issue, even when an issue has several location updates.
+    latest = (
+        db.query(func.max(IssueLocation.id).label("location_id"))
+        .group_by(IssueLocation.issue_id)
+        .subquery()
+    )
+    query = (
+        db.query(Issue, IssueLocation)
+        .join(IssueLocation, IssueLocation.issue_id == Issue.id)
+        .join(latest, IssueLocation.id == latest.c.location_id)
+        .filter(
+            Issue.category == "traffic",
+            Issue.is_active.is_(True),
+            IssueLocation.latitude.between(-90, 90),
+            IssueLocation.longitude.between(-180, 180),
+        )
+    )
+    if status and status.strip():
+        query = query.filter(func.lower(Issue.status) == status.strip().lower())
+    if city and city.strip():
+        query = query.filter(IssueLocation.city.ilike(f"%{city.strip()}%"))
+
+    total = query.count()
+    rows = query.order_by(Issue.created_at.desc(), Issue.id.desc()).limit(limit).all()
+    return TrafficMapOut(
+        total=total,
+        limit=limit,
+        items=[TrafficMapMarkerOut(
+            id=issue.id,
+            title=issue.title,
+            status=issue.status,
+            priority=issue.priority,
+            location=_location(location),
+        ) for issue, location in rows],
     )
