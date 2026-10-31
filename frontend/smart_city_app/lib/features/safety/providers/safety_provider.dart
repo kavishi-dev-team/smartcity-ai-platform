@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../models/air_quality_model.dart';
+import '../models/safety_alert_model.dart';
 import '../services/safety_service.dart';
 
 const _connectionMessage =
@@ -14,7 +15,7 @@ class SafetyProvider extends ChangeNotifier {
 
   bool _disposed = false;
 
-  // ---- Air quality: latest readings ----
+  // ================= Air quality: latest readings =================
   List<AirQualityReading> readings = [];
   String? _selectedArea;
   bool isLoadingAir = false;
@@ -27,7 +28,7 @@ class SafetyProvider extends ChangeNotifier {
     return readings.isEmpty ? null : readings.first;
   }
 
-  // ---- Air quality: history ----
+  // ================= Air quality: history =================
   AirQualityHistory? history;
   String historyPeriod = 'daily';
   bool isLoadingHistory = false;
@@ -47,7 +48,8 @@ class SafetyProvider extends ChangeNotifier {
       }
     } on ApiException catch (e) {
       airError = e.message;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('AIR QUALITY ERROR: $e');
       airError = _connectionMessage;
     }
 
@@ -86,13 +88,94 @@ class SafetyProvider extends ChangeNotifier {
       if (request != _historyRequest) return;
       history = null;
       historyError = e.message;
-    } catch (_) {
+    } catch (e) {
       if (request != _historyRequest) return;
+      debugPrint('AIR QUALITY HISTORY ERROR: $e');
       history = null;
       historyError = _connectionMessage;
     }
 
     isLoadingHistory = false;
+    _notify();
+  }
+
+  // ================= Safety alerts: list =================
+  List<SafetyAlert> alerts = [];
+  bool showActiveAlerts = true; // true = Active tab, false = Previous tab
+  String? severityFilter; // null = all severities
+  bool isLoadingAlerts = false;
+  String? alertsError;
+  int _alertsRequest = 0;
+
+  Future<void> loadAlerts() async {
+    final request = ++_alertsRequest;
+    isLoadingAlerts = true;
+    alertsError = null;
+    _notify();
+
+    try {
+      final result = await _service.fetchAlerts(
+        isActive: showActiveAlerts,
+        severity: severityFilter,
+      );
+      if (request != _alertsRequest) return;
+      alerts = result;
+    } on ApiException catch (e) {
+      if (request != _alertsRequest) return;
+      alerts = [];
+      alertsError = e.message;
+    } catch (e) {
+      if (request != _alertsRequest) return;
+      debugPrint('SAFETY ALERTS ERROR: $e');
+      alerts = [];
+      alertsError = _connectionMessage;
+    }
+
+    isLoadingAlerts = false;
+    _notify();
+  }
+
+  void setAlertsTab(bool active) {
+    if (active == showActiveAlerts) return;
+    showActiveAlerts = active;
+    alerts = [];
+    loadAlerts();
+  }
+
+  void setSeverityFilter(String? severity) {
+    if (severity == severityFilter) return;
+    severityFilter = severity;
+    alerts = [];
+    loadAlerts();
+  }
+
+  // ================= Safety alerts: detail =================
+  SafetyAlert? alertDetail;
+  bool isLoadingDetail = false;
+  String? detailError;
+  int _detailRequest = 0;
+
+  Future<void> loadAlertDetail(int id) async {
+    final request = ++_detailRequest;
+    isLoadingDetail = true;
+    detailError = null;
+    alertDetail = null;
+    _notify();
+
+    try {
+      final result = await _service.fetchAlertDetail(id);
+      if (request != _detailRequest) return;
+      alertDetail = result;
+    } on ApiException catch (e) {
+      if (request != _detailRequest) return;
+      detailError = e.message;
+    } catch (e) {
+      if (request != _detailRequest) return;
+      debugPrint('SAFETY ALERT DETAIL ERROR: $e');
+      detailError = _connectionMessage;
+    }
+
+    isLoadingDetail = false;
     _notify();
   }
 
