@@ -3,8 +3,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.schemas.traffic import TrafficIssueDetailOut, TrafficListOut
-from app.services.traffic_service import get_traffic_issue, list_traffic_issues
+from app.schemas.traffic import TrafficIssueDetailOut, TrafficListOut, TrafficMapOut
+from app.services.traffic_service import get_traffic_issue, list_traffic_issues, list_traffic_map_markers
 
 router = APIRouter(prefix="/api/v1", tags=["Traffic - Member 2"])
 
@@ -45,3 +45,14 @@ def read_traffic_issue(issue_id: int, db: Session = Depends(get_db)):
     if issue is None:
         raise HTTPException(status_code=404, detail="Traffic issue not found")
     return issue
+
+
+@router.get("/traffic/map", response_model=TrafficMapOut)
+def read_traffic_map(
+    status: str | None = Query(default=None, max_length=50),
+    city: str | None = Query(default=None, max_length=100),
+    limit: int = Query(default=500, ge=1, le=500),
+    db: Session = Depends(get_db),
+):
+    """Read-only map markers; no sample values or new database tables."""
+    return list_traffic_map_markers(db, status=status, city=city, limit=limit)
