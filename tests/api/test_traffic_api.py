@@ -128,3 +128,52 @@ def test_empty_results(client):
     assert response.status_code == 200
     assert response.json()['items'] == []
     assert response.json()['total'] == 0
+
+
+def test_traffic_map_markers_use_real_locations(client):
+    response = client.get('/api/v1/traffic/map')
+    assert response.status_code == 200
+    data = response.json()
+    assert data['total'] == 3
+    assert len(data['items']) == 3
+    by_id = {item['id']: item for item in data['items']}
+    assert set(by_id) == {1, 2, 5}
+    assert by_id[1]['location']['latitude'] == 6.05
+    assert by_id[1]['status'] == 'reported'
+    assert 'location' in by_id[2]
+
+
+def test_traffic_map_latest_location_and_filter(client):
+    # Client shares in-memory SQLite via dependency override.
+    from app.db.session import get_db
+    generator = app.dependency_overrides[get_db]()
+    db = next(generator)
+    try:
+        db.add(IssueLocation(issue_id=1, latitude=6.10, longitude=80.30,
+                             city='Matara', address='New junction'))
+        db.commit()
+    finally:
+        generator.close()
+    response = client.get('/api/v1/traffic/map', params={'city': 'matara', 'status': 'reported'})
+    assert response.status_code == 200
+    data = response.json()
+    assert data['total'] == 1
+    assert data['items'][0]['id'] == 1
+    assert data['items'][0]['location']['address'] == 'New junction'
+    assert client.get('/api/v1/traffic/map?limit=0').status_code == 422
+
+
+def test_traffic_map_excludes_invalid_coordinates(client):
+    from app.db.session import get_db
+    generator = app.dependency_overrides[get_db]()
+    db = next(generator)
+    try:
+        db.add(IssueLocation(issue_id=1, latitude=100.0, longitude=80.30,
+                             city='Galle', address='Invalid latitude'))
+        db.commit()
+    finally:
+        generator.close()
+    response = client.get('/api/v1/traffic/map')
+    assert response.status_code == 200
+    assert response.json()['total'] == 2
+    assert 1 not in [x['id'] for x in response.json()['items']]
