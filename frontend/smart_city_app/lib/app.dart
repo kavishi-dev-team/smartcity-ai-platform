@@ -1,16 +1,67 @@
 import 'package:flutter/material.dart';
-import 'core/theme/app_colors.dart';
+import 'package:provider/provider.dart';
 
-class SmartCityApp extends StatelessWidget {
+import 'core/network/api_client.dart';
+import 'core/routing/app_router.dart';
+import 'core/routing/app_routes.dart';
+import 'core/theme/app_colors.dart';
+import 'features/auth/providers/auth_provider.dart';
+import 'features/auth/services/auth_service.dart';
+
+class SmartCityApp extends StatefulWidget {
   const SmartCityApp({super.key});
 
   @override
+  State<SmartCityApp> createState() => _SmartCityAppState();
+}
+
+class _SmartCityAppState extends State<SmartCityApp> {
+  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+
+  late final ApiClient _api = ApiClient();
+  late final AuthProvider _auth = AuthProvider(AuthService(_api), _api);
+
+  AuthStatus _lastStatus = AuthStatus.unknown;
+
+  @override
+  void initState() {
+    super.initState();
+    _auth.addListener(_onAuthChanged);
+  }
+
+  /// Signing out (or an expired session) always ends up on the login screen.
+  void _onAuthChanged() {
+    final status = _auth.status;
+    final wasAuthenticated = _lastStatus == AuthStatus.authenticated;
+    _lastStatus = status;
+
+    if (wasAuthenticated && status == AuthStatus.unauthenticated) {
+      _navigatorKey.currentState?.pushNamedAndRemoveUntil(
+        AppRoutes.login,
+        (route) => false,
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _auth.removeListener(_onAuthChanged);
+    _auth.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Smart City AI Platform',
-      debugShowCheckedModeBanner: false,
-      theme: appTheme,
-      home: const AppHomePage(),
+    return ChangeNotifierProvider<AuthProvider>.value(
+      value: _auth,
+      child: MaterialApp(
+        title: 'Smart City AI Platform',
+        debugShowCheckedModeBanner: false,
+        theme: appTheme,
+        navigatorKey: _navigatorKey,
+        initialRoute: AppRoutes.splash,
+        onGenerateRoute: AppRouter.onGenerateRoute,
+      ),
     );
   }
 }
