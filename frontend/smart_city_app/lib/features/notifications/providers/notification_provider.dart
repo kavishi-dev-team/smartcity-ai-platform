@@ -1,117 +1,110 @@
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/notification_model.dart';
 import '../services/notification_service.dart';
 
 class NotificationProvider extends ChangeNotifier {
-  static const _storageKey = 'notification_read_ids_v1';
+  final NotificationService _service;
 
-  NotificationProvider() {
-    _notifications = NotificationService().getSampleNotifications();
-    loadReadStatus();
+  NotificationProvider({NotificationService? service})
+    : _service = service ?? NotificationService() {
+    loadNotifications();
   }
 
-  late List<NotificationModel> _notifications;
-
+  List<NotificationModel> _notifications = [];
+  int _unreadCount = 0;
   bool _isLoading = true;
+  bool _isSaving = false;
   bool _disposed = false;
-  String? _storageError;
-
-  // Keep saves in order when several notifications are marked quickly.
-  Future<void> _saveQueue = Future<void>.value();
+  String? _error;
 
   List<NotificationModel> get notifications =>
       List.unmodifiable(_notifications);
 
-  int get unreadCount => _notifications.where((item) => !item.isRead).length;
-
+  int get unreadCount => _unreadCount;
   bool get isLoading => _isLoading;
+  bool get isSaving => _isSaving;
+  String? get error => _error;
 
-  String? get storageError => _storageError;
-
-  void _updateListeners() {
-    if (!_disposed) {
-      notifyListeners();
-    }
+  void _notify() {
+    if (!_disposed) notifyListeners();
   }
 
-  Future<void> loadReadStatus() async {
+  Future<void> loadNotifications() async {
+    if (_disposed || _isSaving) return;
+
     _isLoading = true;
-    _storageError = null;
-    _updateListeners();
+    _error = null;
+    _notify();
 
     try {
-      final storage = await SharedPreferences.getInstance();
-      final savedIds = (storage.getStringList(_storageKey) ?? []).toSet();
+      final items = await _service.getNotifications();
+      final count = await _service.getUnreadCount();
 
       if (_disposed) return;
 
-      _notifications = _notifications.map((item) {
-        return savedIds.contains(item.id) ? item.markAsRead() : item;
-      }).toList();
-    } catch (_) {
+      _notifications = items;
+      _unreadCount = count;
+    } catch (error) {
       if (_disposed) return;
-
-      _storageError = 'Could not load saved read status. Please try again.';
+      _error = error.toString();
     } finally {
       if (!_disposed) {
         _isLoading = false;
-        _updateListeners();
+        _notify();
       }
     }
   }
 
-  void markAsRead(String id) {
-    if (_isLoading || _disposed) return;
-
-    final index = _notifications.indexWhere((item) => item.id == id);
-
-    if (index == -1 || _notifications[index].isRead) return;
-
-    _notifications[index] = _notifications[index].markAsRead();
-
-    _updateListeners();
-    saveReadStatus();
+  Future<NotificationModel> getNotification(String id) {
+    return _service.getNotification(id);
   }
 
-  void markAllAsRead() {
-    if (_isLoading || _disposed || unreadCount == 0) return;
+  Future<NotificationModel> markAsRead(String id) async {
+    if (_disposed || _isLoading || _isSaving) {
+      throw const NotificationApiException(
+        'Please wait for the current request to finish.',
+      );
+    }
 
-    _notifications = _notifications.map((item) => item.markAsRead()).toList();
+    _isSaving = true;
+    _notify();
 
-    _updateListeners();
-    saveReadStatus();
-  }
+    try {
+      final updated = await _service.markAsRead(id);
 
-  Future<void> saveReadStatus() {
-    final readIds = _notifications
-        .where((item) => item.isRead)
-        .map((item) => item.id)
-        .toList();
-
-    _saveQueue = _saveQueue.then((_) async {
-      try {
-        final storage = await SharedPreferences.getInstance();
-        final saved = await storage.setStringList(_storageKey, readIds);
-
-        if (!saved) {
-          throw StateError('Read status was not saved.');
+      if (!_disposed) {
+        final index = _notifications.indexWhere((item) => item.id == id);
+        if (index != -1) {
+          _notifications[index] = updated;
         }
-
-        if (!_disposed) {
-          _storageError = null;
-          _updateListeners();
-        }
-      } catch (_) {
-        if (!_disposed) {
-          _storageError = 'Could not save read status. Please retry saving.';
-          _updateListeners();
-        }
+        _unreadCount = _notifications.where((item) => !item.isRead).length;
       }
-    });
 
-    return _saveQueue;
+      return updated;
+    } finally {
+      _isSaving = false;
+      _notify();
+    }
+  }
+
+  Future<void> markAllAsRead() async {
+    if (_disposed || _isLoading || _isSaving || _unreadCount == 0) return;
+
+    _isSaving = true;
+    _notify();
+
+    try {
+      await _service.markAllAsRead();
+
+      if (_disposed) return;
+
+      _notifications = _notifications.map((item) => item.markAsRead()).toList();
+      _unreadCount = 0;
+    } finally {
+      _isSaving = false;
+      _notify();
+    }
   }
 
   @override
