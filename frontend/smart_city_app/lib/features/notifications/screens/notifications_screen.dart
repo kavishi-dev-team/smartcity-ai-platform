@@ -2,26 +2,44 @@ import 'package:flutter/material.dart';
 import 'package:smart_city_app/core/theme/app_colors.dart';
 
 import '../providers/notification_provider.dart';
+import '../services/notification_service.dart';
 import '../widgets/notification_card.dart';
 import 'notification_details_screen.dart';
-import 'notification_preferences_screen.dart';
 
 class NotificationsScreen extends StatefulWidget {
-  const NotificationsScreen({super.key});
+  final NotificationService? service;
+
+  const NotificationsScreen({super.key, this.service});
 
   @override
   State<NotificationsScreen> createState() => _NotificationsScreenState();
 }
 
 class _NotificationsScreenState extends State<NotificationsScreen> {
-  final _provider = NotificationProvider();
-
+  late final NotificationProvider _provider;
   bool _unreadOnly = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _provider = NotificationProvider(service: widget.service);
+  }
 
   @override
   void dispose() {
     _provider.dispose();
     super.dispose();
+  }
+
+  Future<void> _markAll() async {
+    try {
+      await _provider.markAllAsRead();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.toString())));
+    }
   }
 
   @override
@@ -31,18 +49,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       appBar: AppBar(
         title: const Text('Notifications'),
         actions: [
-          IconButton(
-            tooltip: 'Notification preferences',
-            icon: const Icon(Icons.settings_outlined),
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (context) => const NotificationPreferencesScreen(),
-                ),
+          ListenableBuilder(
+            listenable: _provider,
+            builder: (context, child) {
+              return IconButton(
+                tooltip: 'Refresh notifications',
+                onPressed: _provider.isLoading || _provider.isSaving
+                    ? null
+                    : _provider.loadNotifications,
+                icon: const Icon(Icons.refresh),
               );
             },
           ),
-          const SizedBox(width: 8),
         ],
       ),
       body: ListenableBuilder(
@@ -51,9 +69,34 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           if (_provider.isLoading) {
             return const Center(child: CircularProgressIndicator());
           }
-          final items = _provider.notifications.where((item) {
-            return !_unreadOnly || !item.isRead;
-          }).toList();
+
+          if (_provider.error != null) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _provider.error!,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: AppColors.error),
+                    ),
+                    const SizedBox(height: 12),
+                    ElevatedButton.icon(
+                      onPressed: _provider.loadNotifications,
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
+
+          final items = _provider.notifications
+              .where((item) => !_unreadOnly || !item.isRead)
+              .toList();
 
           return SingleChildScrollView(
             padding: const EdgeInsets.all(20),
@@ -63,30 +106,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (_provider.storageError != null) ...[
-                      Text(
-                        _provider.storageError!,
-                        style: const TextStyle(color: AppColors.error),
-                      ),
-                      Wrap(
-                        spacing: 8,
-                        children: [
-                          TextButton(
-                            onPressed: () {
-                              _provider.loadReadStatus();
-                            },
-                            child: const Text('Retry loading'),
-                          ),
-                          TextButton(
-                            onPressed: () {
-                              _provider.saveReadStatus();
-                            },
-                            child: const Text('Retry saving'),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                    ],
                     const Text(
                       'Your updates',
                       style: TextStyle(
@@ -101,7 +120,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                       style: const TextStyle(color: AppColors.muted),
                     ),
                     const SizedBox(height: 12),
-
                     Wrap(
                       spacing: 12,
                       runSpacing: 8,
@@ -115,11 +133,16 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                           },
                         ),
                         TextButton.icon(
-                          onPressed: _provider.unreadCount == 0
+                          onPressed:
+                              _provider.unreadCount == 0 || _provider.isSaving
                               ? null
-                              : _provider.markAllAsRead,
+                              : _markAll,
                           icon: const Icon(Icons.done_all),
-                          label: const Text('Mark all as read'),
+                          label: Text(
+                            _provider.isSaving
+                                ? 'Saving...'
+                                : 'Mark all as read',
+                          ),
                         ),
                       ],
                     ),
@@ -127,19 +150,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     if (items.isEmpty)
                       const Padding(
                         padding: EdgeInsets.symmetric(vertical: 40),
-                        child: Center(
-                          child: Column(
-                            children: [
-                              Icon(
-                                Icons.notifications_off_outlined,
-                                size: 44,
-                                color: AppColors.muted,
-                              ),
-                              SizedBox(height: 12),
-                              Text('No notifications to show.'),
-                            ],
-                          ),
-                        ),
+                        child: Center(child: Text('No notifications to show.')),
                       )
                     else
                       ...items.map(
@@ -148,11 +159,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                           onTap: () {
                             Navigator.of(context).push(
                               MaterialPageRoute<void>(
-                                builder: (context) => NotificationDetailsScreen(
+                                builder: (_) => NotificationDetailsScreen(
                                   notification: item,
-                                  onMarkAsRead: () {
-                                    _provider.markAsRead(item.id);
-                                  },
+                                  loadNotification: () =>
+                                      _provider.getNotification(item.id),
+                                  onMarkAsRead: () =>
+                                      _provider.markAsRead(item.id),
                                 ),
                               ),
                             );

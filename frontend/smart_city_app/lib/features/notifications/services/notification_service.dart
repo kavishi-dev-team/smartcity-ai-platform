@@ -1,38 +1,143 @@
+import 'dart:async';
+import 'dart:convert';
+
+import 'package:http/http.dart' as http;
+
 import '../models/notification_model.dart';
 
+class NotificationApiException implements Exception {
+  final String message;
+
+  const NotificationApiException(this.message);
+
+  @override
+  String toString() => message;
+}
+
 class NotificationService {
-  List<NotificationModel> getSampleNotifications() {
-    return const [
-      NotificationModel(
-        id: 'N-001',
-        title: 'Waste report update',
-        message:
-            'Your bulky waste pickup report is now in progress. '
-            'Further updates will appear here.',
-        category: 'Report update',
-        date: '2026-10-20',
-        reportId: 'WR-2048',
-      ),
-      NotificationModel(
-        id: 'N-002',
-        title: 'Recycling reminder',
-        message:
-            'Check your area’s collection schedule and prepare '
-            'accepted recyclable materials separately.',
-        category: 'Collection reminder',
-        date: '2026-10-20',
-      ),
-      NotificationModel(
-        id: 'N-003',
-        title: 'Waste report resolved',
-        message:
-            'Your missed collection report has been marked '
-            'as resolved in this demo.',
-        category: 'Report update',
-        date: '2026-10-19',
-        reportId: 'WR-2037',
-        isRead: true,
-      ),
-    ];
+  // The auth member can supply the current access token through this callback.
+  final Future<String?> Function()? accessToken;
+
+  NotificationService({this.accessToken});
+
+  static const _baseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'http://127.0.0.1:8000',
+  );
+
+  Future<Map<String, dynamic>> _request(
+    String path, {
+    bool patch = false,
+    Map<String, String>? query,
+  }) async {
+    final uri = Uri.parse(
+      '$_baseUrl/api/v1/notifications$path',
+    ).replace(queryParameters: query);
+
+    final token = await accessToken?.call();
+    final headers = {
+      'Accept': 'application/json',
+      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+    };
+
+    try {
+      final response =
+          await (patch
+                  ? http.patch(uri, headers: headers)
+                  : http.get(uri, headers: headers))
+              .timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 503) {
+        throw const NotificationApiException(
+          'Notifications are unavailable while login integration is pending.',
+        );
+      }
+
+      if (response.statusCode == 401 || response.statusCode == 403) {
+        throw const NotificationApiException(
+          'Please sign in again to access notifications.',
+        );
+      }
+
+      if (response.statusCode == 404) {
+        throw const NotificationApiException('Notification not found.');
+      }
+
+      if (response.statusCode != 200) {
+        throw NotificationApiException(
+          'Notification request failed (HTTP ${response.statusCode}).',
+        );
+      }
+
+      final data = jsonDecode(response.body);
+      if (data is! Map<String, dynamic>) {
+        throw const FormatException();
+      }
+
+      return data;
+    } on TimeoutException {
+      throw const NotificationApiException(
+        'Request timed out. Please try again.',
+      );
+    } on http.ClientException {
+      throw const NotificationApiException(
+        'Cannot connect to the backend. Check your connection and try again.',
+      );
+    } on FormatException {
+      throw const NotificationApiException(
+        'The backend returned an invalid notification response.',
+      );
+    }
+  }
+
+  Future<List<NotificationModel>> getNotifications() async {
+    final notifications = <NotificationModel>[];
+    var offset = 0;
+
+    while (true) {
+      final data = await _request(
+        '',
+        query: {'offset': '$offset', 'limit': '100'},
+      );
+
+      final items = data['items'];
+      final total = data['total'];
+
+      if (items is! List || total is! int) {
+        throw const NotificationApiException(
+          'The backend returned an invalid notification list.',
+        );
+      }
+
+      if (items.isEmpty) break;
+
+      for (final item in items) {
+        notifications.add(
+          NotificationModel.fromJson(Map<String, dynamic>.from(item as Map)),
+        );
+      }
+
+      offset += items.length;
+      if (offset >= total) break;
+    }
+
+    return notifications;
+  }
+
+  Future<NotificationModel> getNotification(String id) async {
+    return NotificationModel.fromJson(await _request('/$id'));
+  }
+
+  Future<int> getUnreadCount() async {
+    final data = await _request('/unread-count');
+    return data['unread_count'] as int;
+  }
+
+  Future<NotificationModel> markAsRead(String id) async {
+    return NotificationModel.fromJson(await _request('/$id/read', patch: true));
+  }
+
+  Future<void> markAllAsRead() async {
+    await _request('/read-all', patch: true);
   }
 }
