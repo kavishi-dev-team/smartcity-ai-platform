@@ -1,0 +1,57 @@
+name: Smart City Platform CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (FastAPI)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+
+      - name: Compile Python files
+        run: python -m compileall -q backend/app
+
+      - name: Check FastAPI app imports
+        working-directory: backend
+        env:
+          DATABASE_URL: mysql+pymysql://smartcity_user:pass123@127.0.0.1:3306/smartcity_db
+          SECRET_KEY: ci-only-test-secret
+        run: python -c "from app.main import app; print('FastAPI app loaded')"
+
+  docker:
+    name: Validate Docker configuration
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build backend Docker image
+        run: |
+          docker build -f backend/Dockerfile -t smartcity-backend:ci .
