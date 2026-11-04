@@ -140,13 +140,24 @@ class _WasteProblemsScreenState extends State<WasteProblemsScreen> {
   }
 
   List<String> _options(String field) {
-    final values =
+    final values = <String>{};
+
+    if (field == 'status') {
+      values.addAll(['Reported', 'In Progress', 'Resolved', 'Closed']);
+    } else if (field == 'priority') {
+      values.addAll(['Low', 'Medium', 'High']);
+    }
+
+    // Include any additional values returned by the API.
+    final existingValues =
         _issues
             .map((issue) => issue[field] ?? '')
             .where((value) => value.isNotEmpty && value != 'All')
             .toSet()
             .toList()
           ..sort();
+
+    values.addAll(existingValues);
 
     return ['All', ...values];
   }
