@@ -1,16 +1,50 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
 import 'core/theme/app_colors.dart';
+import 'features/ai/providers/ai_provider.dart';
+import 'features/ai/screens/ai_assistant_chat_screen.dart';
+
+import 'features/dashboard/providers/dashboard_provider.dart';
+import 'features/dashboard/screens/citizen_dashboard_screen.dart';
+import 'features/dashboard/screens/officer_dashboard_screen.dart';
+import 'features/analytics/providers/analytics_provider.dart';
+import 'features/dashboard/providers/priority_issue_provider.dart';
+
 
 class SmartCityApp extends StatelessWidget {
   const SmartCityApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Smart City AI Platform',
-      debugShowCheckedModeBanner: false,
-      theme: appTheme,
-      home: const AppHomePage(),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(
+          create: (_) => AIProvider(),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => DashboardProvider(),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => PriorityIssueProvider(),
+        ),
+       ChangeNotifierProvider(
+  create: (_) => AnalyticsProvider(),
+),
+      ],
+
+child: MaterialApp(
+  title: 'Smart City AI Platform',
+  debugShowCheckedModeBanner: false,
+  theme: appTheme,
+
+  routes: {
+    '/officer': (context) => const OfficerDashboardScreen(),
+  },
+
+home: const CitizenDashboardScreen(),
+),
+
     );
   }
 }
@@ -254,7 +288,14 @@ class AppHomePage extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: () {},
+                onPressed: () {
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (context) => const AIAssistantChatScreen(),
+    ),
+  );
+},
                 icon: const Icon(Icons.dashboard),
                 label: const Text('Explore Dashboard'),
               ),
