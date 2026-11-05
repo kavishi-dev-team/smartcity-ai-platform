@@ -3,7 +3,8 @@ import 'package:smart_city_app/core/theme/app_colors.dart';
 
 import '../providers/energy_water_provider.dart';
 import '../widgets/water_issue_card.dart';
-
+import 'water_issue_details_screen.dart';
+import 'water_leakage_map_screen.dart';
 class WaterLeakageReportsScreen extends StatefulWidget {
   const WaterLeakageReportsScreen({super.key});
 
@@ -34,7 +35,23 @@ class _WaterLeakageReportsScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Water Leakage Reports')),
+      appBar: AppBar(
+  title: const Text('Water Leakage Reports'),
+  actions: [
+    IconButton(
+      tooltip: 'View Map',
+      icon: const Icon(Icons.map),
+      onPressed: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const WaterLeakageMapScreen(),
+          ),
+        );
+      },
+    ),
+  ],
+),
       body: Column(
         children: [
           Padding(
@@ -97,12 +114,26 @@ class _WaterLeakageReportsScreenState
                   );
                 }
                 return ListView.builder(
-                  padding: const EdgeInsets.all(8),
-                  itemCount: _provider.leakageIssues.length,
-                  itemBuilder: (context, index) => WaterIssueCard(
-                    issue: _provider.leakageIssues[index],
-                  ),
-                );
+  padding: const EdgeInsets.all(8),
+  itemCount: _provider.leakageIssues.length,
+  itemBuilder: (context, index) {
+    final issue = _provider.leakageIssues[index];
+
+    return WaterIssueCard(
+      issue: issue,
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => WaterIssueDetailsScreen(
+              issue: issue,
+            ),
+          ),
+        );
+      },
+    );
+  },
+);
               },
             ),
           ),
