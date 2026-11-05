@@ -1,151 +1,377 @@
+
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+
 import '../models/energy_issue_model.dart';
 import '../models/water_issue_model.dart';
 import '../models/energy_water_statistics_model.dart';
-
+import '../models/issue_details_model.dart';
 class EnergyWaterService {
- 
+  static const String baseUrl = 'http://10.0.2.2:8002/api/v1';
+
+    // Fetch complete Energy Issue Details
+  Future<IssueDetails> fetchEnergyIssueDetails(int issueId) async {
+    final uri = Uri.parse('$baseUrl/energy/issues/$issueId');
+
+    final response = await http.get(
+      uri,
+      headers: {'Accept': 'application/json'},
+    );
+
+    if (response.statusCode == 200) {
+      return IssueDetails.fromJson(
+        jsonDecode(response.body) as Map<String, dynamic>,
+      );
+    }
+
+    throw Exception(
+      'Failed to load energy issue details: '
+      '${response.statusCode} ${response.body}',
+    );
+  }
+
+  // Fetch complete Water Issue Details
+  Future<IssueDetails> fetchWaterIssueDetails(int issueId) async {
+    final uri = Uri.parse('$baseUrl/water/issues/$issueId');
+
+    final response = await http.get(
+      uri,
+      headers: {'Accept': 'application/json'},
+    );
+
+    if (response.statusCode == 200) {
+      return IssueDetails.fromJson(
+        jsonDecode(response.body) as Map<String, dynamic>,
+      );
+    }
+
+    throw Exception(
+      'Failed to load water issue details: '
+      '${response.statusCode} ${response.body}',
+    );
+  }
+
+  // Fetch Energy Issues
   Future<List<EnergyIssue>> fetchEnergyIssues({
     String? search,
     String? status,
     String? priority,
   }) async {
-    await Future.delayed(const Duration(milliseconds: 600));
+    final queryParameters = <String, String>{};
 
-    final now = DateTime.now();
-    final all = <EnergyIssue>[
-      EnergyIssue(
-        id: 1,
-        title: 'Streetlight not working',
-        description:
-            'Streetlight near the main junction is off since last night.',
-        category: 'energy',
-        status: 'reported',
-        priority: 'medium',
-        createdAt: now.subtract(const Duration(days: 1)),
-        updatedAt: now,
-        latitude: 7.2083,
-        longitude: 79.8358,
-        address: 'Main Street',
-        city: 'Negombo',
-      ),
-      EnergyIssue(
-        id: 2,
-        title: 'Power outage in residential area',
-        description: 'No electricity for the past 3 hours.',
-        category: 'energy',
-        status: 'in_progress',
-        priority: 'high',
-        createdAt: now.subtract(const Duration(hours: 5)),
-        updatedAt: now,
-        city: 'Negombo',
-      ),
-      EnergyIssue(
-        id: 3,
-        title: 'Damaged electric pole',
-        description: 'Pole leaning dangerously after the storm.',
-        category: 'energy',
-        status: 'resolved',
-        priority: 'high',
-        createdAt: now.subtract(const Duration(days: 4)),
-        updatedAt: now,
-        city: 'Colombo',
-      ),
-    ];
+    if (search != null && search.isNotEmpty) {
+      queryParameters['search'] = search;
+    }
 
-    return all.where((i) {
-      final matchSearch = search == null ||
-          search.isEmpty ||
-          i.title.toLowerCase().contains(search.toLowerCase());
-      final matchStatus = status == null || i.status == status;
-      final matchPriority = priority == null || i.priority == priority;
-      return matchSearch && matchStatus && matchPriority;
-    }).toList();
+    if (status != null && status.isNotEmpty) {
+      queryParameters['status'] = status;
+    }
+
+    if (priority != null && priority.isNotEmpty) {
+      queryParameters['priority'] = priority;
+    }
+
+    final uri = Uri.parse('$baseUrl/energy/issues').replace(
+      queryParameters:
+          queryParameters.isEmpty ? null : queryParameters,
+    );
+
+    final response = await http.get(
+      uri,
+      headers: {'Accept': 'application/json'},
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final items = data['items'] as List<dynamic>;
+
+      return items
+          .map(
+            (item) => EnergyIssue.fromJson(
+              item as Map<String, dynamic>,
+            ),
+          )
+          .toList();
+    }
+
+    throw Exception(
+      'Failed to load energy issues: '
+      '${response.statusCode} ${response.body}',
+    );
   }
 
-  
+  // Fetch Water Issues and Water Leakage Reports
   Future<List<WaterIssue>> fetchWaterIssues({
     String? search,
     String? status,
     String? priority,
     bool leakageOnly = false,
   }) async {
-    await Future.delayed(const Duration(milliseconds: 600));
+    final queryParameters = <String, String>{};
 
-    final now = DateTime.now();
-    final all = <WaterIssue>[
-      WaterIssue(
-        id: 11,
-        title: 'Burst water pipe',
-        description: 'Water is gushing onto the road near the bus stand.',
-        category: 'water',
-        status: 'reported',
-        priority: 'high',
-        createdAt: now.subtract(const Duration(hours: 3)),
-        updatedAt: now,
-        latitude: 7.2094,
-        longitude: 79.8386,
-        address: 'Bus Stand Road',
-        city: 'Negombo',
-        isLeakage: true,
-      ),
-      WaterIssue(
-        id: 12,
-        title: 'No water supply',
-        description: 'No water in the area since morning.',
-        category: 'water',
-        status: 'in_progress',
-        priority: 'medium',
-        createdAt: now.subtract(const Duration(days: 1)),
-        updatedAt: now,
-        city: 'Colombo',
-      ),
-      WaterIssue(
-        id: 13,
-        title: 'Slow leak near school',
-        description: 'Small continuous leak from a pipe joint.',
-        category: 'water',
-        status: 'resolved',
-        priority: 'low',
-        createdAt: now.subtract(const Duration(days: 5)),
-        updatedAt: now,
-        latitude: 7.2051,
-        longitude: 79.8420,
-        address: 'School Lane',
-        city: 'Negombo',
-        isLeakage: true,
-      ),
-    ];
+    if (search != null && search.isNotEmpty) {
+      queryParameters['search'] = search;
+    }
 
-    return all.where((i) {
-      final matchSearch = search == null ||
-          search.isEmpty ||
-          i.title.toLowerCase().contains(search.toLowerCase());
-      final matchStatus = status == null || i.status == status;
-      final matchPriority = priority == null || i.priority == priority;
-      final matchLeak = !leakageOnly || i.isLeakage;
-      return matchSearch && matchStatus && matchPriority && matchLeak;
-    }).toList();
+    if (status != null && status.isNotEmpty) {
+      queryParameters['status'] = status;
+    }
+
+    if (priority != null && priority.isNotEmpty) {
+      queryParameters['priority'] = priority;
+    }
+
+    if (leakageOnly) {
+      queryParameters['subcategory'] = 'leakage';
+    }
+
+    final uri = Uri.parse('$baseUrl/water/issues').replace(
+      queryParameters:
+          queryParameters.isEmpty ? null : queryParameters,
+    );
+
+    final response = await http.get(
+      uri,
+      headers: {'Accept': 'application/json'},
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final items = data['items'] as List<dynamic>;
+
+      return items
+          .map(
+            (item) => WaterIssue.fromJson(
+              item as Map<String, dynamic>,
+            ),
+          )
+          .toList();
+    }
+
+    throw Exception(
+      'Failed to load water issues: '
+      '${response.statusCode} ${response.body}',
+    );
+  }
+  // Fetch Departments
+Future<List<Map<String, dynamic>>> fetchDepartments() async {
+  final uri = Uri.parse('$baseUrl/departments');
+
+  final response = await http.get(
+    uri,
+    headers: {'Accept': 'application/json'},
+  );
+
+  if (response.statusCode == 200) {
+    return List<Map<String, dynamic>>.from(
+      jsonDecode(response.body),
+    );
   }
 
-    
-  Future<EnergyWaterStatistics> fetchStatistics(String category) async {
-    await Future.delayed(const Duration(milliseconds: 600));
+  throw Exception(
+    'Failed to load departments: ${response.statusCode}',
+  );
+}
 
-    if (category == 'water') {
-      return const EnergyWaterStatistics(
-        totalReports: 42,
-        resolvedReports: 25,
-        byCategory: {'leakage': 18, 'supply': 14, 'quality': 10},
-        byStatus: {'reported': 8, 'in progress': 9, 'resolved': 25},
-        monthlyTrend: {'Jul': 6, 'Aug': 9, 'Sep': 12, 'Oct': 15},
+// Assign Issue to Department
+Future<void> assignIssue({
+  required int issueId,
+  required int assignedTo,
+  required int assignedBy,
+  required int departmentId,
+  String? note,
+}) async {
+  final uri = Uri.parse('$baseUrl/assignments');
+
+  final response = await http.post(
+    uri,
+    headers: {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: jsonEncode({
+      'issue_id': issueId,
+      'assigned_to': assignedTo,
+      'assigned_by': assignedBy,
+      'department_id': departmentId,
+      'note': note,
+    }),
+  );
+
+  if (response.statusCode != 201) {
+    throw Exception(
+      'Failed to assign issue: '
+      '${response.statusCode} ${response.body}',
+    );
+  }
+}
+
+    // Create Energy Issue
+  Future<void> createEnergyIssue({
+    required String title,
+    required String description,
+    required String priority,
+    required double latitude,
+    required double longitude,
+    String? address,
+    String? city,
+  }) async {
+    final uri = Uri.parse('$baseUrl/energy/issues');
+
+    final response = await http.post(
+      uri,
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        'title': title,
+        'description': description,
+        'priority': priority,
+        'latitude': latitude,
+        'longitude': longitude,
+        'address': address,
+        'city': city,
+      }),
+    );
+
+    if (response.statusCode != 201) {
+      throw Exception(
+        'Failed to create energy issue: '
+        '${response.statusCode} ${response.body}',
       );
     }
-    return const EnergyWaterStatistics(
-      totalReports: 35,
-      resolvedReports: 20,
-      byCategory: {'streetlight': 15, 'outage': 12, 'pole': 8},
-      byStatus: {'reported': 7, 'in progress': 8, 'resolved': 20},
-      monthlyTrend: {'Jul': 5, 'Aug': 8, 'Sep': 10, 'Oct': 12},
+  }
+
+  // Create Water Issue
+  Future<void> createWaterIssue({
+    required String title,
+    required String description,
+    required String priority,
+    required double latitude,
+    required double longitude,
+    String? subcategory,
+    String? address,
+    String? city,
+  }) async {
+    final uri = Uri.parse('$baseUrl/water/issues');
+
+    final response = await http.post(
+      uri,
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        'title': title,
+        'description': description,
+        'subcategory': subcategory,
+        'priority': priority,
+        'latitude': latitude,
+        'longitude': longitude,
+        'address': address,
+        'city': city,
+      }),
+    );
+
+    if (response.statusCode != 201) {
+      throw Exception(
+        'Failed to create water issue: '
+        '${response.statusCode} ${response.body}',
+      );
+    }
+  }
+
+  // Fetch Energy & Water Statistics
+  Future<EnergyWaterStatistics> fetchStatistics(
+    String category,
+  ) async {
+    final uri = Uri.parse('$baseUrl/energy-water/statistics');
+
+    final response = await http.get(
+      uri,
+      headers: {'Accept': 'application/json'},
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+
+      final selectedData =
+          data[category] as Map<String, dynamic>?;
+
+      if (selectedData == null) {
+        throw Exception('Statistics not found for $category');
+      }
+
+      // Convert category and status breakdowns
+      Map<String, int> convertBreakdown(dynamic items) {
+        final result = <String, int>{};
+
+        if (items is List) {
+          for (final item in items) {
+            final row = item as Map<String, dynamic>;
+
+            result[row['name'].toString()] =
+                (row['count'] as num).toInt();
+          }
+        }
+
+        return result;
+      }
+
+      // Convert monthly trends
+      Map<String, int> convertMonthlyTrend(dynamic items) {
+        final result = <String, int>{};
+
+        if (items is List) {
+          for (final item in items) {
+            final row = item as Map<String, dynamic>;
+            final month = row['month'].toString();
+
+            result[month] =
+                (row['total_reports'] as num).toInt();
+          }
+        }
+
+        return result;
+      }
+
+      // Convert area-wise statistics
+      Map<String, int> convertAreas(dynamic items) {
+        final result = <String, int>{};
+
+        if (items is List) {
+          for (final item in items) {
+            final row = item as Map<String, dynamic>;
+            final area = row['area'].toString();
+
+            result[area] =
+                (row['total_reports'] as num).toInt();
+          }
+        }
+
+        return result;
+      }
+
+      return EnergyWaterStatistics(
+        totalReports:
+            (selectedData['total_reports'] as num?)?.toInt() ?? 0,
+        resolvedReports:
+            (selectedData['resolved_reports'] as num?)?.toInt() ?? 0,
+        byCategory:
+            convertBreakdown(selectedData['category_breakdown']),
+        byStatus:
+            convertBreakdown(selectedData['status_breakdown']),
+        monthlyTrend:
+            convertMonthlyTrend(selectedData['monthly_trends']),
+        areaWise:
+            convertAreas(selectedData['area_wise']),
+      );
+    }
+
+    throw Exception(
+      'Failed to load statistics: '
+      '${response.statusCode} ${response.body}',
     );
   }
 }
