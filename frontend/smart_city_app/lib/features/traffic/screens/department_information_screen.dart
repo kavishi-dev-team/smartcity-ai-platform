@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -92,6 +93,14 @@ class _DepartmentInformationScreenState extends State<DepartmentInformationScree
         ),
       );
 
+  Future<void> _copyContact(String label, String value) async {
+    await Clipboard.setData(ClipboardData(text: value));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('$label copied to clipboard')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(
@@ -128,14 +137,26 @@ class _DepartmentInformationScreenState extends State<DepartmentInformationScree
               controller: _searchController,
               textInputAction: TextInputAction.search,
               onSubmitted: (_) => _reloadDirectory(resetPage: true),
+              onChanged: (_) => setState(() {}),
               decoration: InputDecoration(
                 hintText: 'Search departments...',
                 prefixIcon: const Icon(Icons.search),
-                suffixIcon: IconButton(
-                  tooltip: 'Search departments',
-                  icon: const Icon(Icons.arrow_forward),
-                  onPressed: () => _reloadDirectory(resetPage: true),
-                ),
+                suffixIcon: Row(mainAxisSize: MainAxisSize.min, children: [
+                  if (_searchController.text.isNotEmpty)
+                    IconButton(
+                      tooltip: 'Clear department search',
+                      icon: const Icon(Icons.close),
+                      onPressed: () {
+                        _searchController.clear();
+                        _reloadDirectory(resetPage: true);
+                      },
+                    ),
+                  IconButton(
+                    tooltip: 'Search departments',
+                    icon: const Icon(Icons.arrow_forward),
+                    onPressed: () => _reloadDirectory(resetPage: true),
+                  ),
+                ]),
               ),
             ),
           ]),
@@ -192,17 +213,29 @@ class _DepartmentInformationScreenState extends State<DepartmentInformationScree
           }
           final d = snapshot.data!;
           return ListView(padding: const EdgeInsets.all(16), children: [
-            Card(child: Padding(
-              padding: const EdgeInsets.all(18),
+            Container(
+              decoration: BoxDecoration(
+                gradient: AppColors.brandGradient,
+                borderRadius: BorderRadius.circular(18),
+              ),
+              padding: const EdgeInsets.all(20),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Icon(Icons.apartment, color: AppColors.primary, size: 32),
-                const SizedBox(height: 8),
-                Text(d.name, style: Theme.of(context).textTheme.headlineMedium),
-                const SizedBox(height: 8),
-                Text('${d.trafficIssueCount} active traffic reports',
-                    style: const TextStyle(color: AppColors.muted)),
+                const Icon(Icons.apartment_rounded, color: Colors.white, size: 34),
+                const SizedBox(height: 9),
+                Text(d.name,
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      color: Colors.white, fontWeight: FontWeight.bold,
+                    )),
+                const SizedBox(height: 12),
+                Chip(
+                  avatar: const Icon(Icons.traffic, color: AppColors.primaryDark, size: 18),
+                  label: Text('${d.trafficIssueCount} active traffic reports'),
+                  backgroundColor: AppColors.card,
+                  side: BorderSide.none,
+                ),
               ]),
-            )),
+            ),
+            const SizedBox(height: 10),
             _section('Department Overview', Icons.info_outline,
                 Text(_present(d.description))),
             _section('Responsibilities', Icons.assignment_outlined,
@@ -301,10 +334,17 @@ class _DepartmentInformationScreenState extends State<DepartmentInformationScree
 
   Widget _infoRow(IconData icon, String label, String? value) => Padding(
         padding: const EdgeInsets.only(bottom: 8),
-        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
           Icon(icon, size: 19, color: AppColors.muted),
           const SizedBox(width: 9),
-          Expanded(child: Text('$label: ${_present(value)}')),
+          Expanded(child: SelectableText('$label: ${_present(value)}')),
+          if (value?.trim().isNotEmpty == true)
+            IconButton(
+              tooltip: 'Copy $label',
+              icon: const Icon(Icons.copy_outlined, size: 19),
+              color: AppColors.primary,
+              onPressed: () => _copyContact(label, value!),
+            ),
         ]),
       );
 
