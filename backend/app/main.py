@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+import app.models  # noqa: F401  (registers every model so relationships resolve)
 from app.api.v1.router import api_router
 from app.core.config import settings
 
@@ -64,7 +65,7 @@ app.include_router(
 )
 
 
-# Existing member routes
+# Existing member routes (auth, users, preferences, air quality, safety, ...)
 app.include_router(api_router, prefix=settings.API_V1_PREFIX)
 
 app.include_router(
