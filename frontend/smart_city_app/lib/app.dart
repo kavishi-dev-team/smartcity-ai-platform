@@ -357,7 +357,7 @@ class AppHomePage extends StatelessWidget {
 
             const SizedBox(height: 20),
 
-            // From feature/water-management
+            // Energy & Water dashboard
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
@@ -377,7 +377,7 @@ class AppHomePage extends StatelessWidget {
 
             const SizedBox(height: 12),
 
-            // From dev
+            // AI assistant
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(

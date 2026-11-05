@@ -1,11 +1,9 @@
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1.router import api_router
 from app.core.config import settings
 
-from app.api.v1.endpoints.issues import router as issues_router
 from app.api.v1.endpoints.collection_schedules import (
     router as collection_schedules_router,
 )
@@ -22,7 +20,6 @@ from app.api.v1.endpoints import (
     prioritized_issues,
     issue_priority_reviews,
 )
-
 
 from app.api.v1.endpoints import (
     energy,
@@ -54,7 +51,7 @@ app.include_router(
 app.include_router(assignments.router, prefix="/api/v1")
 app.include_router(departments.router, prefix="/api/v1")
 
-# Shared Issue Map API
+# Shared Issue Map API (also serves the waste issue list/detail routes)
 app.include_router(
     issues.router,
     prefix="/api/v1",
@@ -69,8 +66,6 @@ app.include_router(
 
 # Existing member routes
 app.include_router(api_router, prefix=settings.API_V1_PREFIX)
-
-app.include_router(issues_router, prefix="/api/v1")
 
 app.include_router(
     collection_schedules_router,
