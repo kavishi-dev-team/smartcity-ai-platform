@@ -5,6 +5,7 @@ import '../../../core/theme/app_colors.dart';
 import '../providers/dashboard_provider.dart';
 import '../models/dashboard_model.dart';
 import '../../ai/screens/ai_assistant_chat_screen.dart';
+import '../../auth/providers/auth_provider.dart';
 
 class CitizenDashboardScreen extends StatefulWidget {
   const CitizenDashboardScreen({super.key});
@@ -173,6 +174,19 @@ class _CitizenDashboardScreenState extends State<CitizenDashboardScreen> {
                   color: Colors.white,
                 ),
               ),
+
+const SizedBox(width: 8),
+IconButton(
+  onPressed: () {
+    context.read<AuthProvider>().logout();
+  },
+  icon: const Icon(
+    Icons.logout,
+    color: Colors.white,
+    size: 24,
+  ),
+  tooltip: 'Logout',
+),
             ],
           ),
           const SizedBox(height: 26),
