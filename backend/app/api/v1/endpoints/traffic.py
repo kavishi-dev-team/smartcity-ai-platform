@@ -3,8 +3,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.schemas.traffic import TrafficIssueDetailOut, TrafficListOut, TrafficMapOut
-from app.services.traffic_service import get_traffic_issue, list_traffic_issues, list_traffic_map_markers
+from app.schemas.traffic import TrafficIssueDetailOut, TrafficHistoryOut, TrafficListOut, TrafficMapOut
+from app.services.traffic_service import (
+    get_traffic_issue, get_traffic_status_history, list_traffic_issues,
+    list_traffic_map_markers,
+)
 
 router = APIRouter(prefix="/api/v1", tags=["Traffic - Member 2"])
 
@@ -39,6 +42,14 @@ def read_traffic_issues(
     )
 
 
+@router.get("/issues/{issue_id}/history", response_model=list[TrafficHistoryOut])
+def read_traffic_history(issue_id: int, db: Session = Depends(get_db)):
+    history = get_traffic_status_history(db, issue_id)
+    if history is None:
+        raise HTTPException(status_code=404, detail="Traffic issue not found")
+    return history
+
+
 @router.get("/issues/{issue_id}", response_model=TrafficIssueDetailOut)
 def read_traffic_issue(issue_id: int, db: Session = Depends(get_db)):
     issue = get_traffic_issue(db, issue_id)
@@ -51,11 +62,13 @@ def read_traffic_issue(issue_id: int, db: Session = Depends(get_db)):
 def read_traffic_map(
     status: str | None = Query(default=None, max_length=50),
     city: str | None = Query(default=None, max_length=100),
+    search: str | None = Query(default=None, max_length=100,
+                               description="Find traffic locations by city, address or report title"),
     limit: int = Query(default=500, ge=1, le=500),
     db: Session = Depends(get_db),
 ):
     """Read-only map markers; no sample values or new database tables."""
-    return list_traffic_map_markers(db, status=status, city=city, limit=limit)
+    return list_traffic_map_markers(db, status=status, city=city, search=search, limit=limit)
 
 from app.api.v1.endpoints.departments import router as departments_router
 router.include_router(departments_router)
