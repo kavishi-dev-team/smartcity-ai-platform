@@ -1,57 +1,116 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'core/network/api_client.dart';
+import 'core/routing/app_router.dart';
+import 'core/routing/app_routes.dart';
 import 'core/theme/app_colors.dart';
+
+import 'features/auth/providers/auth_provider.dart';
+import 'features/auth/services/auth_service.dart';
+
 import 'features/ai/providers/ai_provider.dart';
 import 'features/ai/screens/ai_assistant_chat_screen.dart';
 
 import 'features/dashboard/providers/dashboard_provider.dart';
-import 'features/dashboard/screens/citizen_dashboard_screen.dart';
-import 'features/dashboard/screens/officer_dashboard_screen.dart';
-import 'features/analytics/providers/analytics_provider.dart';
 import 'features/dashboard/providers/priority_issue_provider.dart';
+import 'features/dashboard/screens/officer_dashboard_screen.dart';
+
+import 'features/analytics/providers/analytics_provider.dart';
+import 'features/waste/screens/waste_problems_screen.dart';
 
 
-class SmartCityApp extends StatelessWidget {
+class SmartCityApp extends StatefulWidget {
   const SmartCityApp({super.key});
+
+  @override
+  State<SmartCityApp> createState() => _SmartCityAppState();
+}
+
+class _SmartCityAppState extends State<SmartCityApp> {
+  final GlobalKey<NavigatorState> _navigatorKey =
+      GlobalKey<NavigatorState>();
+
+  late final ApiClient _api = ApiClient();
+
+  late final AuthProvider _auth =
+      AuthProvider(AuthService(_api), _api);
+
+  AuthStatus _lastStatus = AuthStatus.unknown;
+
+  @override
+  void initState() {
+    super.initState();
+    _auth.addListener(_onAuthChanged);
+  }
+
+  void _onAuthChanged() {
+    final status = _auth.status;
+
+    final wasAuthenticated =
+        _lastStatus == AuthStatus.authenticated;
+
+    _lastStatus = status;
+
+    if (wasAuthenticated &&
+        status == AuthStatus.unauthenticated) {
+      _navigatorKey.currentState?.pushNamedAndRemoveUntil(
+        AppRoutes.login,
+        (route) => false,
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _auth.removeListener(_onAuthChanged);
+    _auth.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        ChangeNotifierProvider<AuthProvider>.value(
+          value: _auth,
+        ),
+
         ChangeNotifierProvider(
           create: (_) => AIProvider(),
         ),
+
         ChangeNotifierProvider(
           create: (_) => DashboardProvider(),
         ),
+
         ChangeNotifierProvider(
           create: (_) => PriorityIssueProvider(),
         ),
-       ChangeNotifierProvider(
-  create: (_) => AnalyticsProvider(),
-),
+
+        ChangeNotifierProvider(
+          create: (_) => AnalyticsProvider(),
+        ),
       ],
-
-child: MaterialApp(
-  title: 'Smart City AI Platform',
-  debugShowCheckedModeBanner: false,
-  theme: appTheme,
-
-  routes: {
-    '/officer': (context) => const OfficerDashboardScreen(),
-  },
-
-home: const CitizenDashboardScreen(),
-),
-
+      child: MaterialApp(
+        title: 'Smart City AI Platform',
+        debugShowCheckedModeBanner: false,
+        theme: appTheme,
+        navigatorKey: _navigatorKey,
+        initialRoute: AppRoutes.splash,
+        onGenerateRoute: AppRouter.onGenerateRoute,
+        routes: {
+          '/officer': (context) =>
+              const OfficerDashboardScreen(),
+        },
+      ),
     );
   }
 }
 
+
 final ThemeData appTheme = ThemeData(
   useMaterial3: true,
-
   colorScheme: ColorScheme.fromSeed(
     seedColor: AppColors.primary,
     brightness: Brightness.light,
@@ -60,7 +119,6 @@ final ThemeData appTheme = ThemeData(
     surface: AppColors.card,
     error: AppColors.error,
   ),
-
   scaffoldBackgroundColor: AppColors.background,
 
   appBarTheme: const AppBarTheme(
@@ -176,8 +234,7 @@ final ThemeData appTheme = ThemeData(
   ),
 );
 
-// Temporary home page to test the theme.
-// Replace this with your existing dashboard when ready.
+
 class AppHomePage extends StatelessWidget {
   const AppHomePage({super.key});
 
@@ -241,9 +298,9 @@ class AppHomePage extends StatelessWidget {
 
             const SizedBox(height: 12),
 
-            const Row(
+            Row(
               children: [
-                Expanded(
+                const Expanded(
                   child: OverviewCard(
                     title: 'Traffic',
                     value: 'Monitoring',
@@ -251,12 +308,21 @@ class AppHomePage extends StatelessWidget {
                     color: AppColors.primary,
                   ),
                 ),
+
                 Expanded(
                   child: OverviewCard(
                     title: 'Waste',
                     value: 'Management',
                     icon: Icons.delete_outline,
                     color: AppColors.cyan,
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (context) =>
+                              const WasteProblemsScreen(),
+                        ),
+                      );
+                    },
                   ),
                 ),
               ],
@@ -272,6 +338,7 @@ class AppHomePage extends StatelessWidget {
                     color: AppColors.warning,
                   ),
                 ),
+
                 Expanded(
                   child: OverviewCard(
                     title: 'Water',
@@ -289,13 +356,14 @@ class AppHomePage extends StatelessWidget {
               width: double.infinity,
               child: ElevatedButton.icon(
                 onPressed: () {
-  Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (context) => const AIAssistantChatScreen(),
-    ),
-  );
-},
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          const AIAssistantChatScreen(),
+                    ),
+                  );
+                },
                 icon: const Icon(Icons.dashboard),
                 label: const Text('Explore Dashboard'),
               ),
@@ -307,11 +375,13 @@ class AppHomePage extends StatelessWidget {
   }
 }
 
+
 class OverviewCard extends StatelessWidget {
   final String title;
   final String value;
   final IconData icon;
   final Color color;
+  final VoidCallback? onTap;
 
   const OverviewCard({
     super.key,
@@ -319,46 +389,55 @@ class OverviewCard extends StatelessWidget {
     required this.value,
     required this.icon,
     required this.color,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(12),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  icon,
+                  color: color,
+                  size: 26,
+                ),
               ),
-              child: Icon(
-                icon,
-                color: color,
-                size: 26,
+
+              const SizedBox(height: 16),
+
+              Text(
+                title,
+                style: const TextStyle(
+                  color: AppColors.text,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              title,
-              style: const TextStyle(
-                color: AppColors.text,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
+
+              const SizedBox(height: 4),
+
+              Text(
+                value,
+                style: const TextStyle(
+                  color: AppColors.muted,
+                  fontSize: 12,
+                ),
               ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              value,
-              style: const TextStyle(
-                color: AppColors.muted,
-                fontSize: 12,
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

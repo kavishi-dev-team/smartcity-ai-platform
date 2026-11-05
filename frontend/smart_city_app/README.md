@@ -1,17 +1,23 @@
-# smart_city_app
+## Waste Issues API — Manual Testing
 
-A new Flutter project.
+Tested locally on 24 October 2026 using FastAPI and MySQL.
 
-## Getting Started
+| Test | Observed result | Status |
+|---|---|---|
+| List waste issues before adding test data | Empty items list with total 0 | Passed |
+| Get issue 1 before adding test data | Waste issue not found | Passed |
+| List waste issues after adding test data | Test report returned with Colombo location | Passed |
+| Get existing waste issue 1 | Correct report details and location returned | Passed |
 
-This project is a starting point for a Flutter application.
+### Endpoints
 
-A few resources to get you started if this is your first Flutter project:
+- GET /api/v1/issues?category=waste&offset=0&limit=20
+- GET /api/v1/issues/{issue_id}
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+### Local setup
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+Run these commands from the backend directory:
+
+```powershell
+.\.venv\Scripts\python.exe -m alembic upgrade head
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload
