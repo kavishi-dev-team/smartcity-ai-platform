@@ -1,4 +1,8 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from app.api.v1.router import api_router
+from app.core.config import settings
 
 from app.api.v1.endpoints.issues import router as issues_router
 from fastapi.middleware.cors import CORSMiddleware
@@ -31,6 +35,17 @@ app.include_router(
     collection_schedules_router,
     prefix="/api/v1",
 )
+
+# Lets Flutter web (flutter run -d chrome) call the API during development.
+if settings.DEBUG:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+app.include_router(api_router, prefix=settings.API_V1_PREFIX)
 
 
 @app.get("/")
