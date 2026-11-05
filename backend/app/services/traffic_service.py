@@ -88,10 +88,13 @@ def list_traffic_issues(
 
     issue_ids = [issue.id for issue in issues]
     department_ids = {issue.department_id for issue in issues if issue.department_id is not None}
-    department_names = {
-        dept.id: dept.name
-        for dept in db.query(Department).filter(Department.id.in_(department_ids)).all()
-    } if department_ids else {}
+    # Select only the columns this Traffic feature needs. Loading the full
+    # Department ORM model also selects optional Feature 5 columns, which may
+    # not exist yet in an older local database before its migration runs.
+    department_names = dict(
+        db.query(Department.id, Department.name)
+        .filter(Department.id.in_(department_ids)).all()
+    ) if department_ids else {}
 
     # Pick the latest location if multiple rows exist for a given issue.
     locations = {}
@@ -114,8 +117,13 @@ def get_traffic_issue(db: Session, issue_id: int) -> TrafficIssueDetailOut | Non
         return None
 
     location = db.query(IssueLocation).filter(IssueLocation.issue_id == issue_id).order_by(IssueLocation.id.desc()).first()
-    department = db.get(Department, issue.department_id) if issue.department_id is not None else None
-    base = _issue(issue, location, department.name if department else None)
+    # Do not implicitly select newly added Department metadata here.
+    department_name = (
+        db.query(Department.name)
+        .filter(Department.id == issue.department_id)
+        .scalar()
+    ) if issue.department_id is not None else None
+    base = _issue(issue, location, department_name)
 
     photos = db.query(IssueAttachment).filter(IssueAttachment.issue_id == issue_id).order_by(IssueAttachment.id).all()
     history = db.query(IssueStatusHistory).filter(IssueStatusHistory.issue_id == issue_id).order_by(
