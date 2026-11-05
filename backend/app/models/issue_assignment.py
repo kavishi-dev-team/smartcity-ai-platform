@@ -19,7 +19,7 @@ class IssueAssignment(Base):
     assigned_to = Column(
         Integer,
         ForeignKey("users.id"),
-        nullable=False,
+        nullable=True, 
         index=True,
     )
 
