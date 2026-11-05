@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../models/air_quality_model.dart';
 import '../models/safety_alert_model.dart';
+import '../models/safety_issue_model.dart';
 import '../services/safety_service.dart';
 
 const _connectionMessage =
@@ -176,6 +177,143 @@ class SafetyProvider extends ChangeNotifier {
     }
 
     isLoadingDetail = false;
+    _notify();
+  }
+
+  // ================= Safety problems: summary cards =================
+  SafetySummary? summary;
+
+  Future<void> loadSummary() async {
+    try {
+      summary = await _service.fetchSafetySummary();
+    } catch (e) {
+      // The cards just show "-" if this fails; the list has its own error state.
+      debugPrint('SAFETY SUMMARY ERROR: $e');
+    }
+    _notify();
+  }
+
+  // ================= Safety problems: list =================
+  static const int problemsPageSize = 10;
+
+  List<SafetyIssue> problems = [];
+  int problemsTotal = 0;
+  int problemsPage = 1;
+  int problemsTotalPages = 1;
+  String problemSearch = '';
+  String? problemStatus;
+  String? problemPriority;
+  DateTime? problemDateFrom;
+  DateTime? problemDateTo;
+  bool isLoadingProblems = false;
+  String? problemsError;
+  DateTime? problemsUpdatedAt;
+  int _problemsRequest = 0;
+
+  bool get hasProblemFilters =>
+      problemStatus != null ||
+      problemPriority != null ||
+      problemDateFrom != null ||
+      problemDateTo != null;
+
+  Future<void> loadProblemsScreen() async {
+    await Future.wait([loadSummary(), loadProblems()]);
+  }
+
+  Future<void> loadProblems() async {
+    final request = ++_problemsRequest;
+    isLoadingProblems = true;
+    problemsError = null;
+    _notify();
+
+    try {
+      final result = await _service.fetchSafetyIssues(
+        search: problemSearch,
+        status: problemStatus,
+        priority: problemPriority,
+        dateFrom: problemDateFrom,
+        dateTo: problemDateTo,
+        page: problemsPage,
+        pageSize: problemsPageSize,
+      );
+      if (request != _problemsRequest) return;
+      problems = result.items;
+      problemsTotal = result.total;
+      problemsPage = result.page;
+      problemsTotalPages = result.totalPages;
+      problemsUpdatedAt = DateTime.now();
+    } on ApiException catch (e) {
+      if (request != _problemsRequest) return;
+      problems = [];
+      problemsError = e.message;
+    } catch (e) {
+      if (request != _problemsRequest) return;
+      debugPrint('SAFETY PROBLEMS ERROR: $e');
+      problems = [];
+      problemsError = _connectionMessage;
+    }
+
+    isLoadingProblems = false;
+    _notify();
+  }
+
+  void setProblemSearch(String value) {
+    final text = value.trim();
+    if (text == problemSearch) return;
+    problemSearch = text;
+    problemsPage = 1;
+    loadProblems();
+  }
+
+  void applyProblemFilters({
+    String? status,
+    String? priority,
+    DateTime? dateFrom,
+    DateTime? dateTo,
+  }) {
+    problemStatus = status;
+    problemPriority = priority;
+    problemDateFrom = dateFrom;
+    problemDateTo = dateTo;
+    problemsPage = 1;
+    loadProblems();
+  }
+
+  void clearProblemFilters() => applyProblemFilters();
+
+  void goToProblemsPage(int page) {
+    if (page < 1 || page > problemsTotalPages || page == problemsPage) return;
+    problemsPage = page;
+    loadProblems();
+  }
+
+  // ================= Safety problems: detail =================
+  SafetyIssueDetail? problemDetail;
+  bool isLoadingProblemDetail = false;
+  String? problemDetailError;
+  int _problemDetailRequest = 0;
+
+  Future<void> loadProblemDetail(int id) async {
+    final request = ++_problemDetailRequest;
+    isLoadingProblemDetail = true;
+    problemDetailError = null;
+    problemDetail = null;
+    _notify();
+
+    try {
+      final result = await _service.fetchSafetyIssueDetail(id);
+      if (request != _problemDetailRequest) return;
+      problemDetail = result;
+    } on ApiException catch (e) {
+      if (request != _problemDetailRequest) return;
+      problemDetailError = e.message;
+    } catch (e) {
+      if (request != _problemDetailRequest) return;
+      debugPrint('SAFETY PROBLEM DETAIL ERROR: $e');
+      problemDetailError = _connectionMessage;
+    }
+
+    isLoadingProblemDetail = false;
     _notify();
   }
 
