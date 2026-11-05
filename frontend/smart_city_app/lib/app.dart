@@ -7,6 +7,7 @@ import 'core/routing/app_routes.dart';
 import 'core/theme/app_colors.dart';
 import 'features/auth/providers/auth_provider.dart';
 import 'features/auth/services/auth_service.dart';
+import 'features/waste/screens/waste_problems_screen.dart';
 
 class SmartCityApp extends StatefulWidget {
   const SmartCityApp({super.key});
@@ -68,7 +69,6 @@ class _SmartCityAppState extends State<SmartCityApp> {
 
 final ThemeData appTheme = ThemeData(
   useMaterial3: true,
-
   colorScheme: ColorScheme.fromSeed(
     seedColor: AppColors.primary,
     brightness: Brightness.light,
@@ -77,9 +77,7 @@ final ThemeData appTheme = ThemeData(
     surface: AppColors.card,
     error: AppColors.error,
   ),
-
   scaffoldBackgroundColor: AppColors.background,
-
   appBarTheme: const AppBarTheme(
     backgroundColor: AppColors.navy,
     foregroundColor: Colors.white,
@@ -91,76 +89,45 @@ final ThemeData appTheme = ThemeData(
       fontWeight: FontWeight.bold,
     ),
   ),
-
   cardTheme: CardThemeData(
     color: AppColors.card,
     elevation: 2,
     shadowColor: AppColors.primaryDark.withValues(alpha: 0.08),
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(16),
-      side: const BorderSide(
-        color: AppColors.border,
-        width: 1,
-      ),
+      side: const BorderSide(color: AppColors.border, width: 1),
     ),
     margin: const EdgeInsets.all(8),
   ),
-
   elevatedButtonTheme: ElevatedButtonThemeData(
     style: ElevatedButton.styleFrom(
       backgroundColor: AppColors.primary,
       foregroundColor: Colors.white,
       elevation: 0,
-      padding: const EdgeInsets.symmetric(
-        horizontal: 24,
-        vertical: 14,
-      ),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      textStyle: const TextStyle(
-        fontSize: 15,
-        fontWeight: FontWeight.w600,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
     ),
   ),
-
   inputDecorationTheme: InputDecorationTheme(
     filled: true,
     fillColor: AppColors.card,
-    contentPadding: const EdgeInsets.symmetric(
-      horizontal: 16,
-      vertical: 14,
-    ),
+    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
     border: OutlineInputBorder(
       borderRadius: BorderRadius.circular(12),
-      borderSide: const BorderSide(
-        color: AppColors.border,
-      ),
+      borderSide: const BorderSide(color: AppColors.border),
     ),
     enabledBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(12),
-      borderSide: const BorderSide(
-        color: AppColors.border,
-      ),
+      borderSide: const BorderSide(color: AppColors.border),
     ),
     focusedBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(12),
-      borderSide: const BorderSide(
-        color: AppColors.primary,
-        width: 2,
-      ),
+      borderSide: const BorderSide(color: AppColors.primary, width: 2),
     ),
-    labelStyle: const TextStyle(
-      color: AppColors.muted,
-    ),
+    labelStyle: const TextStyle(color: AppColors.muted),
   ),
-
-  dividerTheme: const DividerThemeData(
-    color: AppColors.border,
-    thickness: 1,
-  ),
-
+  dividerTheme: const DividerThemeData(color: AppColors.border, thickness: 1),
   textTheme: const TextTheme(
     headlineLarge: TextStyle(
       color: AppColors.text,
@@ -182,28 +149,18 @@ final ThemeData appTheme = ThemeData(
       fontSize: 16,
       fontWeight: FontWeight.w600,
     ),
-    bodyLarge: TextStyle(
-      color: AppColors.text,
-      fontSize: 16,
-    ),
-    bodyMedium: TextStyle(
-      color: AppColors.muted,
-      fontSize: 14,
-    ),
+    bodyLarge: TextStyle(color: AppColors.text, fontSize: 16),
+    bodyMedium: TextStyle(color: AppColors.muted, fontSize: 14),
   ),
 );
 
-// Temporary home page to test the theme.
-// Replace this with your existing dashboard when ready.
 class AppHomePage extends StatelessWidget {
   const AppHomePage({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Smart City AI'),
-      ),
+      appBar: AppBar(title: const Text('Smart City AI')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -219,11 +176,7 @@ class AppHomePage extends StatelessWidget {
               child: const Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(
-                    Icons.location_city,
-                    color: Colors.white,
-                    size: 40,
-                  ),
+                  Icon(Icons.location_city, color: Colors.white, size: 40),
                   SizedBox(height: 16),
                   Text(
                     'Smart City AI Platform',
@@ -236,17 +189,12 @@ class AppHomePage extends StatelessWidget {
                   SizedBox(height: 8),
                   Text(
                     'Intelligent solutions for a better city.',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                    ),
+                    style: TextStyle(color: Colors.white, fontSize: 14),
                   ),
                 ],
               ),
             ),
-
             const SizedBox(height: 24),
-
             const Text(
               'City Overview',
               style: TextStyle(
@@ -255,12 +203,10 @@ class AppHomePage extends StatelessWidget {
                 fontWeight: FontWeight.bold,
               ),
             ),
-
             const SizedBox(height: 12),
-
-            const Row(
+            Row(
               children: [
-                Expanded(
+                const Expanded(
                   child: OverviewCard(
                     title: 'Traffic',
                     value: 'Monitoring',
@@ -274,11 +220,17 @@ class AppHomePage extends StatelessWidget {
                     value: 'Management',
                     icon: Icons.delete_outline,
                     color: AppColors.cyan,
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (context) => const WasteProblemsScreen(),
+                        ),
+                      );
+                    },
                   ),
                 ),
               ],
             ),
-
             const Row(
               children: [
                 Expanded(
@@ -299,9 +251,7 @@ class AppHomePage extends StatelessWidget {
                 ),
               ],
             ),
-
             const SizedBox(height: 20),
-
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
@@ -322,6 +272,7 @@ class OverviewCard extends StatelessWidget {
   final String value;
   final IconData icon;
   final Color color;
+  final VoidCallback? onTap;
 
   const OverviewCard({
     super.key,
@@ -329,46 +280,44 @@ class OverviewCard extends StatelessWidget {
     required this.value,
     required this.icon,
     required this.color,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(12),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: color, size: 26),
               ),
-              child: Icon(
-                icon,
-                color: color,
-                size: 26,
+              const SizedBox(height: 16),
+              Text(
+                title,
+                style: const TextStyle(
+                  color: AppColors.text,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              title,
-              style: const TextStyle(
-                color: AppColors.text,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
+              const SizedBox(height: 4),
+              Text(
+                value,
+                style: const TextStyle(color: AppColors.muted, fontSize: 12),
               ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              value,
-              style: const TextStyle(
-                color: AppColors.muted,
-                fontSize: 12,
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
