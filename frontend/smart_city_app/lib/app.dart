@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 import 'core/theme/app_colors.dart';
+import 'features/energy_water/screens/energy_problems_screen.dart';
+import 'features/energy_water/screens/water_problems_screen.dart';
+import 'features/energy_water/screens/water_leakage_reports_screen.dart';
+import 'features/energy_water/screens/energy_water_statistics_screen.dart';
+import 'features/energy_water/screens/energy_water_report_screen.dart';
 
 class SmartCityApp extends StatelessWidget {
   const SmartCityApp({super.key});
@@ -252,13 +257,20 @@ class AppHomePage extends StatelessWidget {
             const SizedBox(height: 20),
 
             SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () {},
-                icon: const Icon(Icons.dashboard),
-                label: const Text('Explore Dashboard'),
-              ),
-            ),
+             width: double.infinity,
+             child: ElevatedButton.icon(
+             onPressed: () {
+            Navigator.push(
+             context,
+            MaterialPageRoute(
+             builder: (context) => const EnergyWaterDashboardMenu(),
+        ),
+      );
+    },
+    icon: const Icon(Icons.dashboard),
+    label: const Text('Explore Dashboard'),
+  ),
+),
           ],
         ),
       ),
@@ -319,6 +331,140 @@ class OverviewCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class EnergyWaterDashboardMenu extends StatelessWidget {
+  const EnergyWaterDashboardMenu({super.key});
+
+  void openScreen(BuildContext context, Widget screen) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => screen),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Energy & Water Dashboard'),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Energy & Water Management',
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: AppColors.text,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Select a section to explore.',
+              style: TextStyle(color: AppColors.muted),
+            ),
+            const SizedBox(height: 20),
+
+            DashboardMenuCard(
+              title: 'Energy Problems',
+              subtitle: 'View and manage energy reports',
+              icon: Icons.bolt,
+              color: AppColors.warning,
+              onTap: () => openScreen(
+                context,
+                const EnergyProblemsScreen(),
+              ),
+            ),
+
+            DashboardMenuCard(
+              title: 'Water Problems',
+              subtitle: 'View and manage water reports',
+              icon: Icons.water_drop,
+              color: AppColors.primary,
+              onTap: () => openScreen(
+                context,
+                const WaterProblemsScreen(),
+              ),
+            ),
+
+            DashboardMenuCard(
+              title: 'Water Leakage Reports',
+              subtitle: 'View leakage reports and map',
+              icon: Icons.location_on,
+              color: AppColors.success,
+              onTap: () => openScreen(
+                context,
+                const WaterLeakageReportsScreen(),
+              ),
+            ),
+
+            DashboardMenuCard(
+              title: 'Energy & Water Statistics',
+              subtitle: 'View reports and statistics',
+              icon: Icons.bar_chart,
+              color: AppColors.cyan,
+              onTap: () => openScreen(
+                context,
+                const EnergyWaterStatisticsScreen(),
+              ),
+            ),
+
+            DashboardMenuCard(
+                title: 'Report a Problem',
+                subtitle: 'Submit a new energy or water report',
+                icon: Icons.add_circle_outline,
+                color: AppColors.primary,
+                onTap: () => openScreen(
+                context,
+            const EnergyWaterReportScreen(),
+            ),
+           ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class DashboardMenuCard extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  const DashboardMenuCard({
+    super.key,
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: ListTile(
+        contentPadding: const EdgeInsets.all(16),
+        leading: CircleAvatar(
+          backgroundColor: color.withValues(alpha: 0.12),
+          child: Icon(icon, color: color),
+        ),
+        title: Text(
+          title,
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        subtitle: Text(subtitle),
+        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+        onTap: onTap,
       ),
     );
   }
