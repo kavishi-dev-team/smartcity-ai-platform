@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, Text
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.sql import func
 
 from app.db.session import Base
@@ -24,6 +24,7 @@ class IssueComment(Base):
     )
 
     comment = Column(Text, nullable=False)
+    visibility = Column(String(16), nullable=False, default="public", server_default="public")
 
     created_at = Column(
         DateTime(timezone=True),
