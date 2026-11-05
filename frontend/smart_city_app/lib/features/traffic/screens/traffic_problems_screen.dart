@@ -124,7 +124,7 @@ class _TrafficProblemsScreenState extends State<TrafficProblemsScreen> {
                     OutlinedButton.icon(
                       onPressed: () => Navigator.of(context).push(
                         MaterialPageRoute<void>(
-                          builder: (_) => TrafficIncidentMapScreen(service: _service),
+                          builder: (_) => TrafficIncidentMapScreen(service: _service, openedFromList: true),
                         ),
                       ),
                       icon: const Icon(Icons.map_outlined),
