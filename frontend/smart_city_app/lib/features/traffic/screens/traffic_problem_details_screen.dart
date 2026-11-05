@@ -4,6 +4,7 @@ import '../../../core/theme/app_colors.dart';
 import '../models/traffic_issue_model.dart';
 import '../services/traffic_service.dart';
 import '../widgets/traffic_status_timeline.dart';
+import 'department_information_screen.dart';
 
 class TrafficProblemDetailsScreen extends StatefulWidget {
   final int issueId;
@@ -87,7 +88,20 @@ class _TrafficProblemDetailsScreenState extends State<TrafficProblemDetailsScree
                       ),
                     ])),
                 _SectionCard(title: 'Responsible Department', icon: Icons.apartment,
-                    child: Text(issue.departmentName ?? 'Not assigned yet')),
+                    child: issue.departmentId == null
+                        ? const Text('Not assigned yet')
+                        : ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: Text(issue.departmentName ?? 'View assigned department'),
+                            subtitle: const Text('View department overview and contact details'),
+                            trailing: const Icon(Icons.chevron_right),
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => DepartmentInformationScreen(
+                                  departmentId: issue.departmentId!, service: _service),
+                              ),
+                            ),
+                          )),
                 if (detail.aiSummary != null && detail.aiSummary!.trim().isNotEmpty)
                   _SectionCard(title: 'AI Analysis Summary', icon: Icons.auto_awesome,
                       child: Text(detail.aiSummary!)),
