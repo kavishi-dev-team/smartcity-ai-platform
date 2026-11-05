@@ -72,3 +72,6 @@ def read_traffic_map(
 
 from app.api.v1.endpoints.departments import router as departments_router
 router.include_router(departments_router)
+
+from app.api.v1.endpoints.traffic_officer import router as traffic_officer_router
+router.include_router(traffic_officer_router)
