@@ -74,10 +74,11 @@ class _TrafficProblemsScreenState extends State<TrafficProblemsScreen> {
     _provider.clearFilters();
   }
 
-  void _openIssue(int id) {
-    Navigator.of(context).push(MaterialPageRoute<void>(
+  Future<void> _openIssue(int id) async {
+    await Navigator.of(context).push(MaterialPageRoute<void>(
       builder: (context) => TrafficProblemDetailsScreen(issueId: id, service: _service),
     ));
+    if (mounted) _provider.refresh();
   }
 
   @override
