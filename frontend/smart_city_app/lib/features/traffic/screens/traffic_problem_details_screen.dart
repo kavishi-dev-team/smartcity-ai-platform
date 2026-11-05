@@ -4,6 +4,8 @@ import '../../../core/theme/app_colors.dart';
 import '../models/traffic_issue_model.dart';
 import '../services/traffic_service.dart';
 import '../widgets/traffic_status_timeline.dart';
+import '../widgets/traffic_photo_viewer.dart';
+import 'traffic_incident_map_screen.dart';
 import 'department_information_screen.dart';
 
 class TrafficProblemDetailsScreen extends StatefulWidget {
@@ -86,6 +88,30 @@ class _TrafficProblemDetailsScreenState extends State<TrafficProblemDetailsScree
                       if (issue.location != null) SelectableText(
                         'Coordinates: ${issue.location!.latitude}, ${issue.location!.longitude}',
                       ),
+                      const SizedBox(height: 12),
+                      if (issue.location?.hasValidCoordinates == true)
+                        OutlinedButton.icon(
+                          key: const Key('traffic-view-on-map'),
+                          onPressed: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => TrafficIncidentMapScreen(
+                                service: _service,
+                                focusMarker: TrafficMapMarker(
+                                  id: issue.id,
+                                  title: issue.title,
+                                  status: issue.status,
+                                  priority: issue.priority,
+                                  location: issue.location!,
+                                ),
+                              ),
+                            ),
+                          ),
+                          icon: const Icon(Icons.map_outlined),
+                          label: const Text('View on Map'),
+                        )
+                      else
+                        const Text('Map is unavailable without valid coordinates.',
+                            style: TextStyle(color: AppColors.muted)),
                     ])),
                 _SectionCard(title: 'Responsible Department', icon: Icons.apartment,
                     child: issue.departmentId == null
@@ -102,48 +128,84 @@ class _TrafficProblemDetailsScreenState extends State<TrafficProblemDetailsScree
                               ),
                             ),
                           )),
-                if (detail.aiSummary != null && detail.aiSummary!.trim().isNotEmpty)
-                  _SectionCard(title: 'AI Analysis Summary', icon: Icons.auto_awesome,
-                      child: Text(detail.aiSummary!)),
+                _SectionCard(title: 'AI Analysis Summary', icon: Icons.auto_awesome,
+                    child: Text(detail.aiSummary?.trim().isNotEmpty == true
+                        ? detail.aiSummary!
+                        : 'No AI analysis is available for this report yet.')),
                 _SectionCard(title: 'Evidence Photos', icon: Icons.photo_library_outlined,
                     child: detail.photos.isEmpty
                         ? const Text('No evidence photos attached.')
-                        : Column(children: detail.photos.map((photo) => Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 7),
-                            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                              Text(photo.fileName, style: const TextStyle(fontWeight: FontWeight.w600)),
-                              const SizedBox(height: 6),
-                              // Only show trusted image URLs. This is a read-only view.
-                              if (Uri.tryParse(photo.fileUrl)?.hasScheme == true &&
-                                  ['https', 'http'].contains(Uri.tryParse(photo.fileUrl)!.scheme))
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(10),
-                                  child: Image.network(photo.fileUrl,
-                                    height: 150, width: double.infinity, fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stackTrace) =>
-                                        const Text('Photo could not be loaded.')),
-                                )
-                              else
-                                const Text('Photo preview is unavailable for this file URL.'),
-                            ]),
-                          )).toList()),
-                ),
+                        : Column(children: [
+                            for (var index = 0; index < detail.photos.length; index++)
+                              Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 7),
+                                child: Column(crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(detail.photos[index].fileName,
+                                        style: const TextStyle(fontWeight: FontWeight.w600)),
+                                    const SizedBox(height: 8),
+                                    Semantics(
+                                      button: true,
+                                      label: 'View photo ${index + 1} full screen',
+                                      child: InkWell(
+                                        key: Key('traffic-evidence-photo-$index'),
+                                        borderRadius: BorderRadius.circular(12),
+                                        onTap: () => Navigator.of(context).push(
+                                          MaterialPageRoute<void>(builder: (_) =>
+                                              TrafficPhotoViewer(
+                                                photos: detail.photos,
+                                                initialIndex: index,
+                                              )),
+                                        ),
+                                        child: ClipRRect(
+                                          borderRadius: BorderRadius.circular(12),
+                                          child: Stack(alignment: Alignment.bottomRight,
+                                            children: [
+                                              SizedBox(
+                                                height: 170,
+                                                width: double.infinity,
+                                                child: Image.network(
+                                                  detail.photos[index].fileUrl,
+                                                  fit: BoxFit.cover,
+                                                  errorBuilder: (_, __, ___) =>
+                                                      const Center(child: Text('Photo preview unavailable')),
+                                                ),
+                                              ),
+                                              const Padding(
+                                                padding: EdgeInsets.all(10),
+                                                child: Chip(
+                                                  avatar: Icon(Icons.zoom_in, size: 18),
+                                                  label: Text('View photo'),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                          ])),
                 _SectionCard(title: 'Status Timeline', icon: Icons.timeline,
                     child: TrafficStatusTimeline(history: detail.statusHistory)),
-                if (detail.similarIssues.isNotEmpty)
-                  _SectionCard(title: 'Similar Traffic Reports', icon: Icons.compare_arrows,
-                      child: Column(children: [
-                        for (final item in detail.similarIssues)
-                          ListTile(
-                            contentPadding: EdgeInsets.zero,
-                            title: Text(item.title),
-                            subtitle: Text('${trafficLabel(item.status)} • ${trafficDate(item.createdAt)}'),
-                            trailing: const Icon(Icons.chevron_right),
-                            onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
-                              builder: (_) => TrafficProblemDetailsScreen(issueId: item.id, service: _service),
-                            )),
-                          ),
-                      ])),
+                _SectionCard(title: 'Similar Traffic Reports', icon: Icons.compare_arrows,
+                    child: detail.similarIssues.isEmpty
+                        ? const Text('No similar traffic reports found.')
+                        : Column(children: [
+                            for (final item in detail.similarIssues)
+                              ListTile(
+                                contentPadding: EdgeInsets.zero,
+                                title: Text(item.title),
+                                subtitle: Text('${trafficLabel(item.status)} • ${trafficDate(item.createdAt)}'),
+                                trailing: const Icon(Icons.chevron_right),
+                                onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
+                                  builder: (_) => TrafficProblemDetailsScreen(
+                                    issueId: item.id, service: _service,
+                                  ),
+                                )),
+                              ),
+                          ])),
               ]),
             ));
           },
