@@ -11,6 +11,11 @@ class TrafficLocation {
     this.city,
   });
 
+  bool get hasValidCoordinates =>
+      latitude.isFinite && longitude.isFinite &&
+      latitude >= -90 && latitude <= 90 &&
+      longitude >= -180 && longitude <= 180;
+
   factory TrafficLocation.fromJson(Map<String, dynamic> json) {
     return TrafficLocation(
       latitude: (json['latitude'] as num).toDouble(),
