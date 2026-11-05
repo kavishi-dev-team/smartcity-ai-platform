@@ -15,6 +15,7 @@ class WaterLeakageMapScreen extends StatefulWidget {
 
 class _WaterLeakageMapScreenState extends State<WaterLeakageMapScreen> {
   final EnergyWaterService _service = EnergyWaterService();
+  final MapController _mapController = MapController();
 
   List<WaterIssue> _issues = [];
   WaterIssue? _selected;
@@ -67,9 +68,10 @@ class _WaterLeakageMapScreenState extends State<WaterLeakageMapScreen> {
         return Stack(
           children: [
             FlutterMap(
+              mapController: _mapController,
               options: MapOptions(
-                initialCenter: const LatLng(7.2083, 79.8358),
-                initialZoom: 14,
+              initialCenter: const LatLng(9.6615, 80.0255),
+              initialZoom: 10,
                 onTap: (_, __) => setState(() => _selected = null),
               ),
               children: [
@@ -98,6 +100,36 @@ class _WaterLeakageMapScreenState extends State<WaterLeakageMapScreen> {
                 ),
               ],
             ),
+
+            Positioned(
+  right: 16,
+  top: 16,
+  child: Column(
+    children: [
+      FloatingActionButton.small(
+        heroTag: 'zoom_in',
+        onPressed: () {
+          _mapController.move(
+            _mapController.camera.center,
+            _mapController.camera.zoom + 1,
+          );
+        },
+        child: const Icon(Icons.add),
+      ),
+      const SizedBox(height: 8),
+      FloatingActionButton.small(
+        heroTag: 'zoom_out',
+        onPressed: () {
+          _mapController.move(
+            _mapController.camera.center,
+            _mapController.camera.zoom - 1,
+          );
+        },
+        child: const Icon(Icons.remove),
+      ),
+    ],
+  ),
+),
             if (_selected != null)
               Positioned(
                 left: 12,
