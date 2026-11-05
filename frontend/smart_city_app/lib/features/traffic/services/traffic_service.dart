@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../models/traffic_issue_model.dart';
+import '../models/department_model.dart';
 
 class TrafficApiException implements Exception {
   final String message;
@@ -92,6 +93,28 @@ class TrafficService {
     if (city.trim().isNotEmpty) params['city'] = city.trim();
     final uri = Uri.parse('$baseUrl/traffic/map').replace(queryParameters: params);
     return TrafficMapPage.fromJson(await _get(uri));
+  }
+
+  Future<DepartmentPage> getDepartments({
+    String search = '', int limit = 20, int offset = 0,
+  }) async {
+    final params = <String, String>{'limit': '$limit', 'offset': '$offset'};
+    if (search.trim().isNotEmpty) params['search'] = search.trim();
+    final uri = Uri.parse('$baseUrl/departments').replace(queryParameters: params);
+    return DepartmentPage.fromJson(await _get(uri));
+  }
+
+  Future<DepartmentInfo> getDepartment(int departmentId) async {
+    final uri = Uri.parse('$baseUrl/departments/$departmentId');
+    return DepartmentInfo.fromJson(await _get(uri));
+  }
+
+  Future<DepartmentTrafficPage> getDepartmentIssues(
+    int departmentId, {int limit = 10, int offset = 0}
+  ) async {
+    final uri = Uri.parse('$baseUrl/departments/$departmentId/issues')
+        .replace(queryParameters: {'limit': '$limit', 'offset': '$offset'});
+    return DepartmentTrafficPage.fromJson(await _get(uri));
   }
 
   void dispose() {
