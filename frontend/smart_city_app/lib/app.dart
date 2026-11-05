@@ -5,9 +5,20 @@ import 'core/network/api_client.dart';
 import 'core/routing/app_router.dart';
 import 'core/routing/app_routes.dart';
 import 'core/theme/app_colors.dart';
+
 import 'features/auth/providers/auth_provider.dart';
 import 'features/auth/services/auth_service.dart';
+
+import 'features/ai/providers/ai_provider.dart';
+import 'features/ai/screens/ai_assistant_chat_screen.dart';
+
+import 'features/dashboard/providers/dashboard_provider.dart';
+import 'features/dashboard/providers/priority_issue_provider.dart';
+import 'features/dashboard/screens/officer_dashboard_screen.dart';
+
+import 'features/analytics/providers/analytics_provider.dart';
 import 'features/waste/screens/waste_problems_screen.dart';
+
 
 class SmartCityApp extends StatefulWidget {
   const SmartCityApp({super.key});
@@ -17,10 +28,13 @@ class SmartCityApp extends StatefulWidget {
 }
 
 class _SmartCityAppState extends State<SmartCityApp> {
-  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+  final GlobalKey<NavigatorState> _navigatorKey =
+      GlobalKey<NavigatorState>();
 
   late final ApiClient _api = ApiClient();
-  late final AuthProvider _auth = AuthProvider(AuthService(_api), _api);
+
+  late final AuthProvider _auth =
+      AuthProvider(AuthService(_api), _api);
 
   AuthStatus _lastStatus = AuthStatus.unknown;
 
@@ -30,13 +44,16 @@ class _SmartCityAppState extends State<SmartCityApp> {
     _auth.addListener(_onAuthChanged);
   }
 
-  /// Signing out (or an expired session) always ends up on the login screen.
   void _onAuthChanged() {
     final status = _auth.status;
-    final wasAuthenticated = _lastStatus == AuthStatus.authenticated;
+
+    final wasAuthenticated =
+        _lastStatus == AuthStatus.authenticated;
+
     _lastStatus = status;
 
-    if (wasAuthenticated && status == AuthStatus.unauthenticated) {
+    if (wasAuthenticated &&
+        status == AuthStatus.unauthenticated) {
       _navigatorKey.currentState?.pushNamedAndRemoveUntil(
         AppRoutes.login,
         (route) => false,
@@ -53,8 +70,28 @@ class _SmartCityAppState extends State<SmartCityApp> {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider<AuthProvider>.value(
-      value: _auth,
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider<AuthProvider>.value(
+          value: _auth,
+        ),
+
+        ChangeNotifierProvider(
+          create: (_) => AIProvider(),
+        ),
+
+        ChangeNotifierProvider(
+          create: (_) => DashboardProvider(),
+        ),
+
+        ChangeNotifierProvider(
+          create: (_) => PriorityIssueProvider(),
+        ),
+
+        ChangeNotifierProvider(
+          create: (_) => AnalyticsProvider(),
+        ),
+      ],
       child: MaterialApp(
         title: 'Smart City AI Platform',
         debugShowCheckedModeBanner: false,
@@ -62,10 +99,15 @@ class _SmartCityAppState extends State<SmartCityApp> {
         navigatorKey: _navigatorKey,
         initialRoute: AppRoutes.splash,
         onGenerateRoute: AppRouter.onGenerateRoute,
+        routes: {
+          '/officer': (context) =>
+              const OfficerDashboardScreen(),
+        },
       ),
     );
   }
 }
+
 
 final ThemeData appTheme = ThemeData(
   useMaterial3: true,
@@ -78,6 +120,7 @@ final ThemeData appTheme = ThemeData(
     error: AppColors.error,
   ),
   scaffoldBackgroundColor: AppColors.background,
+
   appBarTheme: const AppBarTheme(
     backgroundColor: AppColors.navy,
     foregroundColor: Colors.white,
@@ -89,45 +132,76 @@ final ThemeData appTheme = ThemeData(
       fontWeight: FontWeight.bold,
     ),
   ),
+
   cardTheme: CardThemeData(
     color: AppColors.card,
     elevation: 2,
     shadowColor: AppColors.primaryDark.withValues(alpha: 0.08),
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(16),
-      side: const BorderSide(color: AppColors.border, width: 1),
+      side: const BorderSide(
+        color: AppColors.border,
+        width: 1,
+      ),
     ),
     margin: const EdgeInsets.all(8),
   ),
+
   elevatedButtonTheme: ElevatedButtonThemeData(
     style: ElevatedButton.styleFrom(
       backgroundColor: AppColors.primary,
       foregroundColor: Colors.white,
       elevation: 0,
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 24,
+        vertical: 14,
+      ),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      textStyle: const TextStyle(
+        fontSize: 15,
+        fontWeight: FontWeight.w600,
+      ),
     ),
   ),
+
   inputDecorationTheme: InputDecorationTheme(
     filled: true,
     fillColor: AppColors.card,
-    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+    contentPadding: const EdgeInsets.symmetric(
+      horizontal: 16,
+      vertical: 14,
+    ),
     border: OutlineInputBorder(
       borderRadius: BorderRadius.circular(12),
-      borderSide: const BorderSide(color: AppColors.border),
+      borderSide: const BorderSide(
+        color: AppColors.border,
+      ),
     ),
     enabledBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(12),
-      borderSide: const BorderSide(color: AppColors.border),
+      borderSide: const BorderSide(
+        color: AppColors.border,
+      ),
     ),
     focusedBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(12),
-      borderSide: const BorderSide(color: AppColors.primary, width: 2),
+      borderSide: const BorderSide(
+        color: AppColors.primary,
+        width: 2,
+      ),
     ),
-    labelStyle: const TextStyle(color: AppColors.muted),
+    labelStyle: const TextStyle(
+      color: AppColors.muted,
+    ),
   ),
-  dividerTheme: const DividerThemeData(color: AppColors.border, thickness: 1),
+
+  dividerTheme: const DividerThemeData(
+    color: AppColors.border,
+    thickness: 1,
+  ),
+
   textTheme: const TextTheme(
     headlineLarge: TextStyle(
       color: AppColors.text,
@@ -149,10 +223,17 @@ final ThemeData appTheme = ThemeData(
       fontSize: 16,
       fontWeight: FontWeight.w600,
     ),
-    bodyLarge: TextStyle(color: AppColors.text, fontSize: 16),
-    bodyMedium: TextStyle(color: AppColors.muted, fontSize: 14),
+    bodyLarge: TextStyle(
+      color: AppColors.text,
+      fontSize: 16,
+    ),
+    bodyMedium: TextStyle(
+      color: AppColors.muted,
+      fontSize: 14,
+    ),
   ),
 );
+
 
 class AppHomePage extends StatelessWidget {
   const AppHomePage({super.key});
@@ -160,7 +241,9 @@ class AppHomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Smart City AI')),
+      appBar: AppBar(
+        title: const Text('Smart City AI'),
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -176,7 +259,11 @@ class AppHomePage extends StatelessWidget {
               child: const Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.location_city, color: Colors.white, size: 40),
+                  Icon(
+                    Icons.location_city,
+                    color: Colors.white,
+                    size: 40,
+                  ),
                   SizedBox(height: 16),
                   Text(
                     'Smart City AI Platform',
@@ -189,12 +276,17 @@ class AppHomePage extends StatelessWidget {
                   SizedBox(height: 8),
                   Text(
                     'Intelligent solutions for a better city.',
-                    style: TextStyle(color: Colors.white, fontSize: 14),
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                    ),
                   ),
                 ],
               ),
             ),
+
             const SizedBox(height: 24),
+
             const Text(
               'City Overview',
               style: TextStyle(
@@ -203,7 +295,9 @@ class AppHomePage extends StatelessWidget {
                 fontWeight: FontWeight.bold,
               ),
             ),
+
             const SizedBox(height: 12),
+
             Row(
               children: [
                 const Expanded(
@@ -214,6 +308,7 @@ class AppHomePage extends StatelessWidget {
                     color: AppColors.primary,
                   ),
                 ),
+
                 Expanded(
                   child: OverviewCard(
                     title: 'Waste',
@@ -223,7 +318,8 @@ class AppHomePage extends StatelessWidget {
                     onTap: () {
                       Navigator.of(context).push(
                         MaterialPageRoute<void>(
-                          builder: (context) => const WasteProblemsScreen(),
+                          builder: (context) =>
+                              const WasteProblemsScreen(),
                         ),
                       );
                     },
@@ -231,6 +327,7 @@ class AppHomePage extends StatelessWidget {
                 ),
               ],
             ),
+
             const Row(
               children: [
                 Expanded(
@@ -241,6 +338,7 @@ class AppHomePage extends StatelessWidget {
                     color: AppColors.warning,
                   ),
                 ),
+
                 Expanded(
                   child: OverviewCard(
                     title: 'Water',
@@ -251,11 +349,21 @@ class AppHomePage extends StatelessWidget {
                 ),
               ],
             ),
+
             const SizedBox(height: 20),
+
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: () {},
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          const AIAssistantChatScreen(),
+                    ),
+                  );
+                },
                 icon: const Icon(Icons.dashboard),
                 label: const Text('Explore Dashboard'),
               ),
@@ -266,6 +374,7 @@ class AppHomePage extends StatelessWidget {
     );
   }
 }
+
 
 class OverviewCard extends StatelessWidget {
   final String title;
@@ -300,9 +409,15 @@ class OverviewCard extends StatelessWidget {
                   color: color.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(icon, color: color, size: 26),
+                child: Icon(
+                  icon,
+                  color: color,
+                  size: 26,
+                ),
               ),
+
               const SizedBox(height: 16),
+
               Text(
                 title,
                 style: const TextStyle(
@@ -311,10 +426,15 @@ class OverviewCard extends StatelessWidget {
                   fontWeight: FontWeight.bold,
                 ),
               ),
+
               const SizedBox(height: 4),
+
               Text(
                 value,
-                style: const TextStyle(color: AppColors.muted, fontSize: 12),
+                style: const TextStyle(
+                  color: AppColors.muted,
+                  fontSize: 12,
+                ),
               ),
             ],
           ),
