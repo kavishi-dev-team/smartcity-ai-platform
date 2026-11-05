@@ -9,6 +9,7 @@ import '../widgets/traffic_filter_sheet.dart';
 import '../widgets/traffic_issue_card.dart';
 import 'traffic_problem_details_screen.dart';
 import 'traffic_incident_map_screen.dart';
+import 'department_information_screen.dart';
 
 class TrafficProblemsScreen extends StatefulWidget {
   final TrafficService? service;
@@ -112,7 +113,8 @@ class _TrafficProblemsScreenState extends State<TrafficProblemsScreen> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  AnimatedBuilder(animation: _provider, builder: (context, _) => Row(children: [
+                  AnimatedBuilder(animation: _provider, builder: (context, _) => Wrap(
+                    spacing: 6, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [
                     OutlinedButton.icon(
                       onPressed: _openFilters,
                       icon: const Icon(Icons.tune),
@@ -129,9 +131,18 @@ class _TrafficProblemsScreenState extends State<TrafficProblemsScreen> {
                       label: const Text('Map'),
                     ),
                     const SizedBox(width: 6),
+                    OutlinedButton.icon(
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => DepartmentInformationScreen(service: _service),
+                        ),
+                      ),
+                      icon: const Icon(Icons.apartment_outlined),
+                      label: const Text('Departments'),
+                    ),
+                    const SizedBox(width: 6),
                     if (_provider.filters.isActive)
                       IconButton(tooltip: 'Clear filters', onPressed: _clearAll, icon: const Icon(Icons.filter_alt_off_outlined)),
-                    const Spacer(),
                     if (!_provider.loading)
                       Text('${_provider.total} reports',
                           style: const TextStyle(color: AppColors.muted)),
