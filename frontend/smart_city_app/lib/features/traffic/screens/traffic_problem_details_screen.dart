@@ -7,6 +7,7 @@ import '../widgets/traffic_status_timeline.dart';
 import '../widgets/traffic_photo_viewer.dart';
 import 'traffic_incident_map_screen.dart';
 import 'department_information_screen.dart';
+import 'traffic_status_management_screen.dart';
 
 class TrafficProblemDetailsScreen extends StatefulWidget {
   final int issueId;
@@ -37,8 +38,15 @@ class _TrafficProblemDetailsScreenState extends State<TrafficProblemDetailsScree
     super.dispose();
   }
 
-  void _retry() => setState(() => _future = _service.getIssue(widget.issueId));
+  void _retry() {
+  if (!mounted) return;
 
+  final nextFuture = _service.getIssue(widget.issueId);
+
+  setState(() {
+    _future = nextFuture;
+  });
+}
   @override
   Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(title: const Text('Traffic Problem Details')),
@@ -77,6 +85,28 @@ class _TrafficProblemDetailsScreenState extends State<TrafficProblemDetailsScree
                     const SizedBox(height: 8),
                     Text('Report #${issue.id}  •  ${trafficDate(issue.createdAt)}',
                         style: const TextStyle(color: AppColors.muted)),
+                  ]),
+                )),
+                // Officer entry point. The backend requires a valid signed JWT
+                // and an active officer/admin database role for every action.
+                Card(child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Row(children: [
+                    const Icon(Icons.admin_panel_settings_outlined, color: AppColors.primary),
+                    const SizedBox(width: 10),
+                    const Expanded(child: Text('Authorized traffic officers can assign and update this report.')),
+                    TextButton.icon(
+                      key: const Key('traffic-open-officer-tools'),
+                      onPressed: () async {
+                        await Navigator.of(context).push(MaterialPageRoute<void>(
+                          builder: (_) => TrafficStatusManagementScreen(
+                            issueId: issue.id, service: _service),
+                        ));
+                        if (mounted) _retry();
+                      },
+                      icon: const Icon(Icons.manage_accounts_outlined),
+                      label: const Text('Manage'),
+                    ),
                   ]),
                 )),
                 _SectionCard(title: 'Problem Description', icon: Icons.description_outlined,
