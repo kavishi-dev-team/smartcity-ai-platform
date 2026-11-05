@@ -56,3 +56,6 @@ def read_traffic_map(
 ):
     """Read-only map markers; no sample values or new database tables."""
     return list_traffic_map_markers(db, status=status, city=city, limit=limit)
+
+from app.api.v1.endpoints.departments import router as departments_router
+router.include_router(departments_router)
