@@ -177,3 +177,46 @@ def test_traffic_map_excludes_invalid_coordinates(client):
     assert response.status_code == 200
     assert response.json()['total'] == 2
     assert 1 not in [x['id'] for x in response.json()['items']]
+
+
+def test_map_search_by_city_street_and_report_title(client):
+    # Location search uses the database, not hard-coded Flutter marker values.
+    by_city = client.get('/api/v1/traffic/map', params={'search': 'galle'})
+    assert by_city.status_code == 200
+    assert {x['id'] for x in by_city.json()['items']} == {1, 5}
+
+    by_street = client.get('/api/v1/traffic/map', params={'search': 'market road'})
+    assert by_street.status_code == 200
+    assert [x['id'] for x in by_street.json()['items']] == [1]
+
+    by_title = client.get('/api/v1/traffic/map', params={'search': 'blocked road'})
+    assert by_title.status_code == 200
+    assert [x['id'] for x in by_title.json()['items']] == [2]
+
+    missing = client.get('/api/v1/traffic/map', params={'search': 'unmatched area'})
+    assert missing.status_code == 200
+    assert missing.json()['total'] == 0
+    assert missing.json()['items'] == []
+    assert client.get('/api/v1/traffic/map', params={'search': 'x' * 101}).status_code == 422
+
+
+def test_history_endpoint_excludes_nontraffic_and_missing(client):
+    history = client.get('/api/v1/issues/1/history')
+    assert history.status_code == 200
+    assert history.json()[0]['new_status'] == 'reported'
+    assert history.json()[0]['note'] == 'Created'
+    assert client.get('/api/v1/issues/3/history').status_code == 404
+    assert client.get('/api/v1/issues/999/history').status_code == 404
+
+
+def test_map_search_filters_can_be_combined(client):
+    response = client.get('/api/v1/traffic/map', params={
+        'search': 'market', 'status': 'reported', 'city': 'Galle',
+    })
+    assert response.status_code == 200
+    assert {x['id'] for x in response.json()['items']} == {1, 5}
+    other_status = client.get('/api/v1/traffic/map', params={
+        'search': 'market', 'status': 'resolved',
+    })
+    assert other_status.status_code == 200
+    assert other_status.json()['total'] == 0
