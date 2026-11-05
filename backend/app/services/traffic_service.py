@@ -162,7 +162,30 @@ def get_traffic_issue(db: Session, issue_id: int) -> TrafficIssueDetailOut | Non
     )
 
 
-def list_traffic_map_markers(db: Session, *, status: str | None = None, city: str | None = None, limit: int = 500) -> TrafficMapOut:
+def get_traffic_status_history(db: Session, issue_id: int) -> list[TrafficHistoryOut] | None:
+    """Read status changes for a real, active traffic issue only."""
+    exists = db.query(Issue.id).filter(
+        Issue.id == issue_id,
+        Issue.category == "traffic",
+        Issue.is_active.is_(True),
+    ).first()
+    if exists is None:
+        return None
+    rows = db.query(IssueStatusHistory).filter(
+        IssueStatusHistory.issue_id == issue_id,
+    ).order_by(IssueStatusHistory.created_at, IssueStatusHistory.id).all()
+    return [TrafficHistoryOut(
+        previous_status=row.previous_status,
+        new_status=row.new_status,
+        note=row.note,
+        created_at=row.created_at,
+    ) for row in rows]
+
+
+def list_traffic_map_markers(
+    db: Session, *, status: str | None = None, city: str | None = None,
+    search: str | None = None, limit: int = 500,
+) -> TrafficMapOut:
     """Latest valid coordinates of active traffic reports; persisted MySQL data only."""
     # One marker per issue, even when an issue has several location updates.
     latest = (
@@ -185,6 +208,13 @@ def list_traffic_map_markers(db: Session, *, status: str | None = None, city: st
         query = query.filter(func.lower(Issue.status) == status.strip().lower())
     if city and city.strip():
         query = query.filter(IssueLocation.city.ilike(f"%{city.strip()}%"))
+    if search and search.strip():
+        needle = f"%{search.strip()}%"
+        query = query.filter(or_(
+            IssueLocation.city.ilike(needle),
+            IssueLocation.address.ilike(needle),
+            Issue.title.ilike(needle),
+        ))
 
     total = query.count()
     rows = query.order_by(Issue.created_at.desc(), Issue.id.desc()).limit(limit).all()
