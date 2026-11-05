@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 
 import '../models/traffic_issue_model.dart';
 import '../models/department_model.dart';
+import '../models/traffic_officer_model.dart';
 
 class TrafficApiException implements Exception {
   final String message;
@@ -25,6 +26,12 @@ class TrafficService {
   final http.Client _client;
   final bool _ownsClient;
   final String baseUrl;
+  // In-memory only. Will be supplied by Member 1 login after integration.
+  String? _officerToken;
+
+  bool get hasOfficerToken => _officerToken != null && _officerToken!.isNotEmpty;
+  void setOfficerToken(String token) => _officerToken = token.trim();
+  void clearOfficerToken() => _officerToken = null;
 
   TrafficService({http.Client? client, String baseUrl = defaultBaseUrl})
       : _client = client ?? http.Client(),
@@ -118,6 +125,101 @@ class TrafficService {
     final uri = Uri.parse('$baseUrl/departments/$departmentId/issues')
         .replace(queryParameters: {'limit': '$limit', 'offset': '$offset'});
     return DepartmentTrafficPage.fromJson(await _get(uri));
+  }
+
+  Future<Map<String, dynamic>> _officerRequest(
+    String method,
+    String path, {
+    Map<String, dynamic>? body,
+  }) async {
+    final token = _officerToken;
+    if (token == null || token.isEmpty) {
+      throw const TrafficApiException('Officer login is required.');
+    }
+    final uri = Uri.parse('$baseUrl/traffic/officer/$path');
+    final headers = <String, String>{
+      'Authorization': 'Bearer $token',
+      'Content-Type': 'application/json',
+    };
+    http.Response response;
+    try {
+      if (method == 'GET') {
+        response = await _client.get(uri, headers: headers)
+            .timeout(const Duration(seconds: 20));
+      } else if (method == 'PATCH') {
+        response = await _client.patch(uri, headers: headers, body: jsonEncode(body))
+            .timeout(const Duration(seconds: 20));
+      } else {
+        response = await _client.post(uri, headers: headers, body: jsonEncode(body))
+            .timeout(const Duration(seconds: 20));
+      }
+    } catch (_) {
+      throw const TrafficApiException('Cannot contact the Traffic Officer API. Check FastAPI.');
+    }
+    if (response.statusCode == 401) {
+      throw const TrafficApiException('Officer token is invalid or expired. Sign in again.');
+    }
+    if (response.statusCode == 403) {
+      throw const TrafficApiException('Your account is not authorized to manage traffic reports.');
+    }
+    dynamic payload;
+    try {
+      payload = jsonDecode(response.body);
+    } catch (_) {
+      throw TrafficApiException('Unexpected officer API response (HTTP ${response.statusCode}).');
+    }
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      final detail = payload is Map ? payload['detail'] : null;
+      final message = detail is String ? detail : 'Request failed (HTTP ${response.statusCode}).';
+      throw TrafficApiException(message);
+    }
+    if (payload is! Map<String, dynamic>) {
+      throw const TrafficApiException('Invalid officer API response.');
+    }
+    return payload;
+  }
+
+  Future<TrafficOfficerIssue> getOfficerIssue(int id) async {
+    final data = await _officerRequest('GET', 'issues/$id');
+    return TrafficOfficerIssue.fromJson(data);
+  }
+
+  Future<void> assignTrafficDepartment(int issueId, int departmentId) async {
+    await _officerRequest('POST', 'issues/$issueId/department', body: {
+      'department_id': departmentId,
+    });
+  }
+
+  Future<void> assignTrafficOfficer(int issueId, int officerId) async {
+    await _officerRequest('POST', 'issues/$issueId/officer', body: {
+      'officer_id': officerId,
+    });
+  }
+
+  Future<void> reviewTrafficPriority(int issueId, {
+    required String decision,
+    String? priority,
+    String? reason,
+  }) async {
+    await _officerRequest('POST', 'issues/$issueId/priority-review', body: {
+      'decision': decision,
+      if (priority != null) 'priority': priority,
+      if (reason != null) 'reason': reason,
+    });
+  }
+
+  Future<void> saveTrafficOfficerUpdate(int issueId, {
+    String? status,
+    String? internalNote,
+    String? publicUpdate,
+  }) async {
+    await _officerRequest('PATCH', 'issues/$issueId/status', body: {
+      if (status != null) 'status': status,
+      if (internalNote != null && internalNote.trim().isNotEmpty)
+        'internal_note': internalNote.trim(),
+      if (publicUpdate != null && publicUpdate.trim().isNotEmpty)
+        'public_update': publicUpdate.trim(),
+    });
   }
 
   void dispose() {
