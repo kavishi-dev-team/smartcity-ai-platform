@@ -5,6 +5,7 @@ import 'core/network/api_client.dart';
 import 'core/routing/app_router.dart';
 import 'core/routing/app_routes.dart';
 import 'core/theme/app_colors.dart';
+import 'features/traffic/screens/traffic_problems_screen.dart';
 import 'features/energy_water/screens/energy_problems_screen.dart';
 import 'features/energy_water/screens/water_problems_screen.dart';
 import 'features/energy_water/screens/water_leakage_reports_screen.dart';
@@ -305,12 +306,17 @@ class AppHomePage extends StatelessWidget {
 
             Row(
               children: [
-                const Expanded(
+                Expanded(
                   child: OverviewCard(
                     title: 'Traffic',
                     value: 'Monitoring',
                     icon: Icons.traffic,
                     color: AppColors.primary,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const TrafficProblemsScreen(),
+                      ),
+                    ),
                   ),
                 ),
 

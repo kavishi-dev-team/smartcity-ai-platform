@@ -5,6 +5,7 @@ import app.models  # noqa: F401  (registers every model so relationships resolve
 from app.api.v1.router import api_router
 from app.core.config import settings
 
+from app.api.v1.endpoints.traffic import router as traffic_router
 from app.api.v1.endpoints.collection_schedules import (
     router as collection_schedules_router,
 )
@@ -67,6 +68,9 @@ app.include_router(
 
 # Existing member routes (auth, users, preferences, air quality, safety, ...)
 app.include_router(api_router, prefix=settings.API_V1_PREFIX)
+
+# Member 2 traffic endpoints
+app.include_router(traffic_router)
 
 app.include_router(
     collection_schedules_router,
