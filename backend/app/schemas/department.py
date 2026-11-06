@@ -1,5 +1,7 @@
-"""Read-only public Department Information schemas for Member 2."""
+"""Department schemas (shared by the general and traffic modules)."""
 from datetime import datetime
+from typing import Optional
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.traffic import TrafficIssueOut
@@ -10,16 +12,22 @@ class DepartmentOut(BaseModel):
 
     id: int
     name: str
-    description: str | None = None
-    responsibilities: str | None = None
-    contact_email: str | None = None
-    contact_phone: str | None = None
-    office_address: str | None = None
-    office_city: str | None = None
-    office_latitude: float | None = None
-    office_longitude: float | None = None
-    operating_hours: str | None = None
-    traffic_issue_count: int = Field(ge=0)
+    description: Optional[str] = None
+
+    # Core fields from the general departments API
+    is_active: Optional[bool] = None
+    created_at: Optional[datetime] = None
+
+    # Department information fields (traffic module)
+    responsibilities: Optional[str] = None
+    contact_email: Optional[str] = None
+    contact_phone: Optional[str] = None
+    office_address: Optional[str] = None
+    office_city: Optional[str] = None
+    office_latitude: Optional[float] = None
+    office_longitude: Optional[float] = None
+    operating_hours: Optional[str] = None
+    traffic_issue_count: Optional[int] = Field(default=None, ge=0)
 
 
 class DepartmentListOut(BaseModel):
