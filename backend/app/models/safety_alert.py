@@ -14,11 +14,18 @@ class SafetyAlert(Base):
     alert_type = Column(String(100), nullable=False, index=True)
     severity = Column(String(50), nullable=False, default="medium")
     area = Column(String(150), nullable=False, index=True)
+    safety_instructions = Column(Text, nullable=True)
     issue_id = Column(Integer, ForeignKey("issues.id"), nullable=True)
     is_active = Column(Boolean, nullable=False, default=True)
     created_at = Column(
         DateTime(timezone=True),
         server_default=func.now(),
+        nullable=False,
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
         nullable=False,
     )
 

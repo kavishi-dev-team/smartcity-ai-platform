@@ -14,7 +14,7 @@ COPY backend/alembic.ini ./backend/alembic.ini
 
 WORKDIR /app/backend
 
-RUN chmod +x start.sh
+RUN sed -i 's/\r$//' start.sh && chmod +x start.sh
 
 EXPOSE 8000
 

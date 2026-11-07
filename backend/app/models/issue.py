@@ -11,6 +11,7 @@ class Issue(Base):
     title = Column(String(200), nullable=False)
     description = Column(Text, nullable=False)
     category = Column(String(100), nullable=False, index=True)
+    subcategory = Column(String(100), nullable=True, index=True)
     status = Column(String(50), nullable=False, default="reported", index=True)
     priority = Column(String(50), nullable=False, default="medium")
     reported_by = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
