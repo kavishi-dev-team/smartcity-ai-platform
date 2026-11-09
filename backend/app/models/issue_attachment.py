@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.sql import func
 
 from app.db.session import Base
@@ -23,7 +23,7 @@ class IssueAttachment(Base):
     )
 
     file_name = Column(String(255), nullable=False)
-    file_url = Column(String(1000), nullable=False)
+    file_url = Column(Text, nullable=False)
     file_type = Column(String(100), nullable=True)
     file_size = Column(Integer, nullable=True)
 
