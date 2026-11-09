@@ -34,9 +34,10 @@ def verify_email(data: VerifyEmailRequest, db: Session = Depends(get_db)):
 
 @router.post("/resend-verification", response_model=MessageResponse)
 def resend_verification(data: ResendVerificationRequest, db: Session = Depends(get_db)):
-    auth_service.resend_verification(db, data.email)
+    code = auth_service.resend_verification(db, data.email)
     return MessageResponse(
-        message="If the account exists and is not verified, a new code has been sent"
+        message="A new security verification code has been generated",
+        verification_code=code,
     )
 
 
@@ -59,9 +60,10 @@ def logout(data: LogoutRequest, db: Session = Depends(get_db)):
 
 @router.post("/forgot-password", response_model=MessageResponse)
 def forgot_password(data: ForgotPasswordRequest, db: Session = Depends(get_db)):
-    auth_service.forgot_password(db, data.email)
+    code = auth_service.forgot_password(db, data.email)
     return MessageResponse(
-        message="If an account with this email exists, a reset code has been sent"
+        message="If an account with this email exists, a reset code has been generated",
+        verification_code=code,
     )
 
 
