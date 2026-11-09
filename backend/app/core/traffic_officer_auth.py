@@ -13,7 +13,14 @@ from app.db.session import get_db
 from app.models.user import User
 
 _bearer = HTTPBearer(auto_error=False)
-_OFFICER_ROLES = {'officer', 'authorized_officer', 'admin'}
+_OFFICER_ROLES = {
+    'officer',
+    'authorized_officer',
+    'admin',
+    'department_officer',
+    'city_manager',
+    'super_admin',
+}
 _DEFAULT_SECRET = 'development-only-change-this-secret'
 
 
