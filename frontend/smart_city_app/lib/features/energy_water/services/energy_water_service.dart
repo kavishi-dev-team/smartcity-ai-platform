@@ -2,12 +2,14 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
+import '../../../core/config/app_config.dart';
 import '../models/energy_issue_model.dart';
 import '../models/water_issue_model.dart';
 import '../models/energy_water_statistics_model.dart';
 import '../models/issue_details_model.dart';
+
 class EnergyWaterService {
-  static const String baseUrl = 'http://10.0.2.2:8002/api/v1';
+  static String get baseUrl => AppConfig.apiBaseUrl;
 
     // Fetch complete Energy Issue Details
   Future<IssueDetails> fetchEnergyIssueDetails(int issueId) async {
@@ -56,6 +58,7 @@ class EnergyWaterService {
     String? search,
     String? status,
     String? priority,
+    int? reportedBy,
   }) async {
     final queryParameters = <String, String>{};
 
@@ -69,6 +72,10 @@ class EnergyWaterService {
 
     if (priority != null && priority.isNotEmpty) {
       queryParameters['priority'] = priority;
+    }
+
+    if (reportedBy != null) {
+      queryParameters['reported_by'] = reportedBy.toString();
     }
 
     final uri = Uri.parse('$baseUrl/energy/issues').replace(
@@ -106,6 +113,7 @@ class EnergyWaterService {
     String? status,
     String? priority,
     bool leakageOnly = false,
+    int? reportedBy,
   }) async {
     final queryParameters = <String, String>{};
 
@@ -123,6 +131,10 @@ class EnergyWaterService {
 
     if (leakageOnly) {
       queryParameters['subcategory'] = 'leakage';
+    }
+
+    if (reportedBy != null) {
+      queryParameters['reported_by'] = reportedBy.toString();
     }
 
     final uri = Uri.parse('$baseUrl/water/issues').replace(
@@ -163,9 +175,13 @@ Future<List<Map<String, dynamic>>> fetchDepartments() async {
   );
 
   if (response.statusCode == 200) {
-    return List<Map<String, dynamic>>.from(
-      jsonDecode(response.body),
-    );
+    final decoded = jsonDecode(response.body);
+    if (decoded is List) {
+      return List<Map<String, dynamic>>.from(decoded);
+    } else if (decoded is Map<String, dynamic> && decoded['items'] is List) {
+      return List<Map<String, dynamic>>.from(decoded['items'] as List);
+    }
+    return [];
   }
 
   throw Exception(
@@ -215,6 +231,7 @@ Future<void> assignIssue({
     required double longitude,
     String? address,
     String? city,
+    int reportedBy = 1,
   }) async {
     final uri = Uri.parse('$baseUrl/energy/issues');
 
@@ -232,6 +249,7 @@ Future<void> assignIssue({
         'longitude': longitude,
         'address': address,
         'city': city,
+        'reported_by': reportedBy,
       }),
     );
 
@@ -253,6 +271,7 @@ Future<void> assignIssue({
     String? subcategory,
     String? address,
     String? city,
+    int reportedBy = 1,
   }) async {
     final uri = Uri.parse('$baseUrl/water/issues');
 
@@ -271,6 +290,7 @@ Future<void> assignIssue({
         'longitude': longitude,
         'address': address,
         'city': city,
+        'reported_by': reportedBy,
       }),
     );
 
@@ -284,9 +304,14 @@ Future<void> assignIssue({
 
   // Fetch Energy & Water Statistics
   Future<EnergyWaterStatistics> fetchStatistics(
-    String category,
-  ) async {
-    final uri = Uri.parse('$baseUrl/energy-water/statistics');
+    String category, {
+    int? reportedBy,
+  }) async {
+    final uri = Uri.parse('$baseUrl/energy-water/statistics').replace(
+      queryParameters: reportedBy != null
+          ? {'reported_by': reportedBy.toString()}
+          : null,
+    );
 
     final response = await http.get(
       uri,
