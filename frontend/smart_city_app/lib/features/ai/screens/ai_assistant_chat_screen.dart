@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/theme/app_colors.dart';
+import '../../auth/providers/auth_provider.dart';
 import '../models/chat_message_model.dart';
 import '../providers/ai_provider.dart';
 
@@ -12,13 +14,48 @@ class AIAssistantChatScreen extends StatefulWidget {
       _AIAssistantChatScreenState();
 }
 
-class _AIAssistantChatScreenState
-    extends State<AIAssistantChatScreen> {
-  final TextEditingController _messageController =
-      TextEditingController();
+class _AIAssistantChatScreenState extends State<AIAssistantChatScreen> {
+  final TextEditingController _messageController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
 
-  final ScrollController _scrollController =
-      ScrollController();
+  static const List<Map<String, dynamic>> _quickPrompts = [
+    {
+      'label': 'My Active Reports',
+      'prompt': 'Show my active citizen reports and their current status',
+      'icon': Icons.assignment_turned_in_rounded,
+      'color': AppColors.primary,
+    },
+    {
+      'label': 'Live Sri Lanka AQI',
+      'prompt': 'What is the live air quality (AQI) across Sri Lanka right now?',
+      'icon': Icons.air_rounded,
+      'color': AppColors.cyan,
+    },
+    {
+      'label': 'Kandy & Colombo AQI',
+      'prompt': 'What is the live AQI and PM2.5 in Colombo and Kandy?',
+      'icon': Icons.location_city_rounded,
+      'color': AppColors.navy,
+    },
+    {
+      'label': 'Waste Schedule & Bins',
+      'prompt': 'What are the municipal waste collection schedules and separation rules?',
+      'icon': Icons.recycling_rounded,
+      'color': AppColors.success,
+    },
+    {
+      'label': 'Power & Water Leaks',
+      'prompt': 'How do I report a water pipe leak or power outage in my area?',
+      'icon': Icons.bolt_rounded,
+      'color': AppColors.warning,
+    },
+    {
+      'label': 'Safety & Hotlines',
+      'prompt': 'Show active public safety alerts and emergency department contacts',
+      'icon': Icons.shield_rounded,
+      'color': AppColors.error,
+    },
+  ];
 
   @override
   void initState() {
@@ -26,7 +63,12 @@ class _AIAssistantChatScreenState
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        context.read<AIProvider>().loadChatSessions();
+        final uid = context.read<AuthProvider>().user?.id;
+        final ai = context.read<AIProvider>();
+        if (uid != null) {
+          ai.setUserId(uid);
+        }
+        ai.loadChatSessions();
       }
     });
   }
@@ -50,8 +92,8 @@ class _AIAssistantChatScreenState
     });
   }
 
-  Future<void> _sendMessage() async {
-    final text = _messageController.text.trim();
+  Future<void> _sendMessage([String? presetText]) async {
+    final text = (presetText ?? _messageController.text).trim();
 
     if (text.isEmpty) return;
 
@@ -74,7 +116,9 @@ class _AIAssistantChatScreenState
       return;
     }
 
-    _messageController.clear();
+    if (presetText == null) {
+      _messageController.clear();
+    }
 
     await provider.sendMessage(text);
 
@@ -107,6 +151,10 @@ class _AIAssistantChatScreenState
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (sheetContext) {
         return Consumer<AIProvider>(
           builder: (context, ai, child) {
@@ -115,14 +163,42 @@ class _AIAssistantChatScreenState
                 height: MediaQuery.of(context).size.height * 0.65,
                 child: Column(
                   children: [
-                    const Padding(
-                      padding: EdgeInsets.all(16),
-                      child: Text(
-                        'Chat History',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 16, 16, 12),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: AppColors.lightBlue,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(
+                              Icons.history_rounded,
+                              color: AppColors.primary,
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Text(
+                              'Smart City Chat History',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.navy,
+                              ),
+                            ),
+                          ),
+                          TextButton.icon(
+                            onPressed: () async {
+                              Navigator.of(sheetContext).pop();
+                              await _startNewChat();
+                            },
+                            icon: const Icon(Icons.add_rounded, size: 18),
+                            label: const Text('New'),
+                          ),
+                        ],
                       ),
                     ),
                     const Divider(height: 1),
@@ -133,20 +209,51 @@ class _AIAssistantChatScreenState
                             )
                           : ai.sessions.isEmpty
                               ? const Center(
-                                  child: Text('No previous chats found.'),
+                                  child: Text(
+                                    'No previous Smart City conversations found.',
+                                    style: TextStyle(
+                                      color: AppColors.muted,
+                                    ),
+                                  ),
                                 )
-                              : ListView.builder(
+                              : ListView.separated(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 8,
+                                  ),
                                   itemCount: ai.sessions.length,
+                                  separatorBuilder: (_, _) =>
+                                      const Divider(height: 1, indent: 68),
                                   itemBuilder: (context, index) {
                                     final session = ai.sessions[index];
+                                    final isCurrent =
+                                        session.id == ai.currentSessionId;
 
                                     return ListTile(
-                                      leading: const CircleAvatar(
-                                        child: Icon(Icons.chat),
+                                      selected: isCurrent,
+                                      selectedTileColor: AppColors.background,
+                                      leading: CircleAvatar(
+                                        backgroundColor: isCurrent
+                                            ? AppColors.primary
+                                            : AppColors.lightBlue,
+                                        child: Icon(
+                                          Icons.smart_toy_rounded,
+                                          size: 20,
+                                          color: isCurrent
+                                              ? Colors.white
+                                              : AppColors.primary,
+                                        ),
                                       ),
                                       title: Text(
                                         session.title ??
                                             'Smart City Conversation',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontWeight: isCurrent
+                                              ? FontWeight.w700
+                                              : FontWeight.w600,
+                                          color: AppColors.text,
+                                        ),
                                       ),
                                       subtitle: Text(
                                         session.createdAt
@@ -154,11 +261,15 @@ class _AIAssistantChatScreenState
                                             .toString()
                                             .split('.')
                                             .first,
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: AppColors.muted,
+                                        ),
                                       ),
                                       trailing: IconButton(
                                         icon: const Icon(
-                                          Icons.delete_outline,
-                                          color: Colors.red,
+                                          Icons.delete_outline_rounded,
+                                          color: AppColors.error,
                                         ),
                                         onPressed: () async {
                                           final navigator =
@@ -168,7 +279,8 @@ class _AIAssistantChatScreenState
 
                                           if (!mounted) return;
 
-                                          if (navigator.canPop()) {
+                                          if (ai.sessions.isEmpty &&
+                                              navigator.canPop()) {
                                             navigator.pop();
                                           }
                                         },
@@ -201,23 +313,52 @@ class _AIAssistantChatScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FB),
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF126B9E),
+        backgroundColor: AppColors.navy,
         foregroundColor: Colors.white,
-        title: const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        elevation: 0,
+        titleSpacing: 0,
+        title: Row(
           children: [
-            Text(
-              'Smart City AI',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: AppColors.cyan.withValues(alpha: 0.22),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: AppColors.skyBlue.withValues(alpha: 0.4),
+                ),
+              ),
+              child: const Icon(
+                Icons.smart_toy_rounded,
+                color: AppColors.skyBlue,
+                size: 20,
               ),
             ),
-            Text(
-              'Your Smart City Assistant',
-              style: TextStyle(fontSize: 11),
+            const SizedBox(width: 10),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Smart City AI Assistant',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                    ),
+                  ),
+                  Text(
+                    'Strict Smart City Intelligence • Live Data',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: AppColors.lightBlue,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -225,12 +366,12 @@ class _AIAssistantChatScreenState
           IconButton(
             tooltip: 'Chat History',
             onPressed: _openHistory,
-            icon: const Icon(Icons.history),
+            icon: const Icon(Icons.history_rounded),
           ),
           IconButton(
-            tooltip: 'New Chat',
+            tooltip: 'New Conversation',
             onPressed: _startNewChat,
-            icon: const Icon(Icons.add),
+            icon: const Icon(Icons.add_comment_rounded),
           ),
         ],
       ),
@@ -244,12 +385,46 @@ class _AIAssistantChatScreenState
 
           return Column(
             children: [
+              // Guardrail banner
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
+                ),
+                decoration: const BoxDecoration(
+                  color: AppColors.lightBlue,
+                  border: Border(
+                    bottom: BorderSide(color: AppColors.border),
+                  ),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(
+                      Icons.verified_user_rounded,
+                      size: 16,
+                      color: AppColors.navy,
+                    ),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Dedicated to Smart City services: Live Sri Lanka AQI, Your Reports, Waste, Energy, Water, Traffic & Safety.',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.navy,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
               Expanded(
                 child: ai.messages.isEmpty
                     ? _buildWelcomeMessage()
                     : ListView.builder(
                         controller: _scrollController,
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                         itemCount: ai.messages.length,
                         itemBuilder: (context, index) {
                           return _buildMessageBubble(
@@ -258,23 +433,33 @@ class _AIAssistantChatScreenState
                         },
                       ),
               ),
+              if (ai.messages.isNotEmpty) _buildQuickChipsBar(ai),
               if (ai.isSending)
-                const Padding(
-                  padding: EdgeInsets.symmetric(
+                Container(
+                  padding: const EdgeInsets.symmetric(
                     horizontal: 16,
                     vertical: 8,
                   ),
+                  alignment: Alignment.centerLeft,
                   child: Row(
                     children: [
-                      SizedBox(
+                      const SizedBox(
                         width: 16,
                         height: 16,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
+                          color: AppColors.primary,
                         ),
                       ),
-                      SizedBox(width: 10),
-                      Text('AI is thinking...'),
+                      const SizedBox(width: 10),
+                      Text(
+                        'Analyzing live Smart City telemetry...',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.navy.withValues(alpha: 0.8),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -286,78 +471,172 @@ class _AIAssistantChatScreenState
     );
   }
 
-  Widget _buildWelcomeMessage() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const CircleAvatar(
-              radius: 38,
-              backgroundColor: Color(0xFFDCEFFA),
-              child: Icon(
-                Icons.smart_toy,
-                size: 42,
-                color: Color(0xFF126B9E),
+  Widget _buildQuickChipsBar(AIProvider ai) {
+    return SizedBox(
+      height: 40,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        itemCount: _quickPrompts.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final item = _quickPrompts[index];
+          return ActionChip(
+            avatar: Icon(
+              item['icon'] as IconData,
+              size: 15,
+              color: item['color'] as Color,
+            ),
+            label: Text(
+              item['label'] as String,
+              style: const TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+                color: AppColors.navy,
               ),
             ),
-            const SizedBox(height: 20),
-            const Text(
-              'Hello! How can I help you?',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 10),
-            const Text(
-              'Ask me about traffic, road damage, waste management, '
-              'water supply and other city services.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.black54,
-              ),
-            ),
-            const SizedBox(height: 24),
-            _buildSuggestion('How can I report road damage?'),
-            _buildSuggestion('How do I report waste problems?'),
-            _buildSuggestion('How can I report water issues?'),
-          ],
-        ),
+            backgroundColor: Colors.white,
+            side: const BorderSide(color: AppColors.border),
+            onPressed: ai.isSending
+                ? null
+                : () => _sendMessage(item['prompt'] as String),
+          );
+        },
       ),
     );
   }
 
-  Widget _buildSuggestion(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: InkWell(
-        onTap: () {
-          _messageController.text = text;
-          _sendMessage();
-        },
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: const Color(0xFF126B9E).withValues(alpha: 0.2),
+  Widget _buildWelcomeMessage() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [AppColors.navy, AppColors.primary],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(18),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.primary.withValues(alpha: 0.2),
+                  blurRadius: 14,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.smart_toy_rounded,
+                    size: 34,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                const Text(
+                  'Smart City AI Assistant',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Connected to live Sri Lanka Air Quality (44 cities), your personal citizen reports, waste schedules, utility alerts, and municipal departments.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: AppColors.lightBlue,
+                    height: 1.4,
+                  ),
+                ),
+              ],
             ),
           ),
-          child: Text(
-            text,
-            style: const TextStyle(
-              color: Color(0xFF126B9E),
-              fontSize: 13,
+          const SizedBox(height: 20),
+          const Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'ASK ABOUT SMART CITY SERVICES',
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.8,
+                color: AppColors.muted,
+              ),
             ),
           ),
-        ),
+          const SizedBox(height: 10),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: _quickPrompts.length,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              mainAxisSpacing: 10,
+              crossAxisSpacing: 10,
+              childAspectRatio: 1.65,
+            ),
+            itemBuilder: (context, index) {
+              final item = _quickPrompts[index];
+              final color = item['color'] as Color;
+              return InkWell(
+                onTap: () => _sendMessage(item['prompt'] as String),
+                borderRadius: BorderRadius.circular(14),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: color.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          item['icon'] as IconData,
+                          size: 18,
+                          color: color,
+                        ),
+                      ),
+                      Text(
+                        item['label'] as String,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.text,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
       ),
     );
   }
@@ -366,33 +645,61 @@ class _AIAssistantChatScreenState
     final isUser = message.isUser;
 
     return Align(
-      alignment:
-          isUser ? Alignment.centerRight : Alignment.centerLeft,
+      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.80,
+          maxWidth: MediaQuery.of(context).size.width * 0.84,
         ),
-        margin: const EdgeInsets.only(bottom: 14),
+        margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: isUser
-              ? const Color(0xFF126B9E)
-              : Colors.white,
+          color: isUser ? AppColors.primary : Colors.white,
           borderRadius: BorderRadius.only(
             topLeft: const Radius.circular(16),
             topRight: const Radius.circular(16),
             bottomLeft: Radius.circular(isUser ? 16 : 4),
             bottomRight: Radius.circular(isUser ? 4 : 16),
           ),
+          border: isUser ? null : Border.all(color: AppColors.border),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              message.content,
+            if (!isUser)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.smart_toy_rounded,
+                      size: 14,
+                      color: AppColors.primary,
+                    ),
+                    const SizedBox(width: 5),
+                    const Text(
+                      'Smart City AI',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            SelectableText(
+              message.content.replaceAll('**', ''),
               style: TextStyle(
-                color: isUser ? Colors.white : Colors.black87,
-                fontSize: 14,
+                color: isUser ? Colors.white : AppColors.text,
+                fontSize: 13.5,
                 height: 1.5,
               ),
             ),
@@ -402,7 +709,7 @@ class _AIAssistantChatScreenState
               '${message.createdAt.toLocal().minute.toString().padLeft(2, '0')}',
               style: TextStyle(
                 fontSize: 10,
-                color: isUser ? Colors.white70 : Colors.black45,
+                color: isUser ? Colors.white70 : AppColors.muted,
               ),
             ),
           ],
@@ -413,16 +720,10 @@ class _AIAssistantChatScreenState
 
   Widget _buildMessageInput(AIProvider ai) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 16),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 14),
       decoration: const BoxDecoration(
         color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 8,
-            offset: Offset(0, -2),
-          ),
-        ],
+        border: Border(top: BorderSide(color: AppColors.border)),
       ),
       child: Row(
         children: [
@@ -433,16 +734,31 @@ class _AIAssistantChatScreenState
               maxLines: 4,
               textCapitalization: TextCapitalization.sentences,
               decoration: InputDecoration(
-                hintText: 'Ask Smart City AI...',
+                hintText: 'Ask about AQI, your reports, waste, water, traffic...',
+                hintStyle: const TextStyle(
+                  fontSize: 13,
+                  color: AppColors.muted,
+                ),
                 filled: true,
-                fillColor: const Color(0xFFF2F4F7),
+                fillColor: AppColors.background,
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 16,
                   vertical: 12,
                 ),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(25),
-                  borderSide: BorderSide.none,
+                  borderRadius: BorderRadius.circular(24),
+                  borderSide: const BorderSide(color: AppColors.border),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(24),
+                  borderSide: const BorderSide(color: AppColors.border),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(24),
+                  borderSide: const BorderSide(
+                    color: AppColors.primary,
+                    width: 1.5,
+                  ),
                 ),
               ),
               onSubmitted: (_) => _sendMessage(),
@@ -450,13 +766,15 @@ class _AIAssistantChatScreenState
           ),
           const SizedBox(width: 8),
           CircleAvatar(
-            backgroundColor: const Color(0xFF126B9E),
+            radius: 22,
+            backgroundColor:
+                ai.isSending ? AppColors.muted : AppColors.primary,
             child: IconButton(
-              onPressed: ai.isSending ? null : _sendMessage,
+              onPressed: ai.isSending ? null : () => _sendMessage(),
               icon: const Icon(
-                Icons.send,
+                Icons.send_rounded,
                 color: Colors.white,
-                size: 20,
+                size: 19,
               ),
             ),
           ),
