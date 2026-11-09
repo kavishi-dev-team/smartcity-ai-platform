@@ -3,7 +3,9 @@
 .github
 .env
 .env.*
-!.env.example
+**/.env
+**/.env.*
+!**/.env.example
 frontend/
 backend/.venv/
 backend/__pycache__/
