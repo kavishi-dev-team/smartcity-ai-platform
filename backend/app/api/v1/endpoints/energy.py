@@ -24,6 +24,7 @@ def get_energy_issues(
     priority: Optional[str] = Query(None),
     subcategory: Optional[str] = Query(None),
     city: Optional[str] = Query(None),
+    reported_by: Optional[int] = Query(None),
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
     db: Session = Depends(get_db),
@@ -35,6 +36,7 @@ def get_energy_issues(
         priority=priority,
         subcategory=subcategory,
         city=city,
+        reported_by=reported_by,
         skip=skip,
         limit=limit,
     )

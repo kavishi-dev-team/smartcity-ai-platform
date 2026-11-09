@@ -20,11 +20,13 @@ class AuthProvider extends ChangeNotifier {
   UserModel? _user;
   bool _isLoading = false;
   String? _errorMessage;
+  String? _verificationCode;
 
   AuthStatus get status => _status;
   UserModel? get user => _user;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
+  String? get verificationCode => _verificationCode;
   bool get isAuthenticated => _status == AuthStatus.authenticated;
 
   void clearError() {
@@ -83,28 +85,36 @@ class AuthProvider extends ChangeNotifier {
     required String fullName,
     required String email,
     required String phoneNumber,
+    required String address,
     required String password,
     required String confirmPassword,
     required bool acceptTerms,
   }) {
-    return _run(() => _service.register(
-          fullName: fullName,
-          email: email,
-          phoneNumber: phoneNumber,
-          password: password,
-          confirmPassword: confirmPassword,
-          acceptTerms: acceptTerms,
-        ));
+    return _run(() async {
+      _verificationCode = await _service.register(
+        fullName: fullName,
+        email: email,
+        phoneNumber: phoneNumber,
+        address: address,
+        password: password,
+        confirmPassword: confirmPassword,
+        acceptTerms: acceptTerms,
+      );
+    });
   }
 
-  Future<bool> verifyEmail(String email, String code) =>
-      _run(() => _service.verifyEmail(email: email, code: code));
+  Future<bool> verifyEmail(String email, String code) => _run(() async {
+        await _service.verifyEmail(email: email, code: code);
+        _verificationCode = null;
+      });
 
-  Future<bool> resendVerification(String email) =>
-      _run(() => _service.resendVerification(email));
+  Future<bool> resendVerification(String email) => _run(() async {
+        _verificationCode = await _service.resendVerification(email);
+      });
 
-  Future<bool> forgotPassword(String email) =>
-      _run(() => _service.forgotPassword(email));
+  Future<bool> forgotPassword(String email) => _run(() async {
+        _verificationCode = await _service.forgotPassword(email);
+      });
 
   Future<bool> resetPassword({
     required String email,
@@ -112,12 +122,22 @@ class AuthProvider extends ChangeNotifier {
     required String newPassword,
     required String confirmPassword,
   }) {
-    return _run(() => _service.resetPassword(
-          email: email,
-          code: code,
-          newPassword: newPassword,
-          confirmPassword: confirmPassword,
-        ));
+    return _run(() async {
+      await _service.resetPassword(
+        email: email,
+        code: code,
+        newPassword: newPassword,
+        confirmPassword: confirmPassword,
+      );
+      _verificationCode = null;
+    });
+  }
+
+  Future<void> refreshCurrentUser() async {
+    try {
+      _user = await _service.fetchCurrentUser();
+      notifyListeners();
+    } catch (_) {}
   }
 
   Future<void> logout() async {

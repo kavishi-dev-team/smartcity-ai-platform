@@ -1,8 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../auth/providers/auth_provider.dart';
+import '../../reporting/widgets/quick_issue_report_sheet.dart';
 import '../providers/traffic_provider.dart';
 import '../services/traffic_service.dart';
 import '../widgets/traffic_filter_sheet.dart';
@@ -33,7 +36,20 @@ class _TrafficProblemsScreenState extends State<TrafficProblemsScreen> {
     _ownsService = widget.service == null;
     _service = widget.service ?? TrafficService();
     _provider = TrafficProvider(_service);
-    _provider.refresh();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final user = context.read<AuthProvider>().user;
+      _provider.reportedBy = (user != null && user.isCitizen) ? user.id : null;
+      _provider.refresh();
+    });
+  }
+
+  void _openReportSheet() {
+    QuickIssueReportSheet.show(
+      context,
+      initialCategory: 'traffic',
+      onSubmitted: _provider.refresh,
+    );
   }
 
   @override
@@ -83,71 +99,166 @@ class _TrafficProblemsScreenState extends State<TrafficProblemsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final activeCount = _provider.issues
+        .where((i) => !['resolved', 'closed'].contains(i.status.toLowerCase()))
+        .length;
+    final resolvedCount = _provider.issues
+        .where((i) => ['resolved', 'closed'].contains(i.status.toLowerCase()))
+        .length;
+    final totalCount = _provider.total > 0 ? _provider.total : _provider.issues.length;
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Traffic Problems')),
+      appBar: AppBar(
+        title: const Text('Traffic Problems'),
+        actions: [
+          IconButton(
+            tooltip: 'Track Traffic Locations on Map',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => TrafficIncidentMapScreen(
+                  service: _service,
+                  openedFromList: true,
+                ),
+              ),
+            ),
+            icon: const Icon(Icons.map_outlined),
+          ),
+          IconButton(
+            tooltip: 'Submit Traffic Report',
+            onPressed: _openReportSheet,
+            icon: const Icon(Icons.add_circle_outline_rounded),
+          ),
+          IconButton(
+            tooltip: 'Refresh',
+            onPressed: _provider.refresh,
+            icon: const Icon(Icons.refresh_rounded),
+          ),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
+        onPressed: _openReportSheet,
+        icon: const Icon(Icons.add_rounded),
+        label: const Text(
+          'New Traffic Report',
+          style: TextStyle(fontWeight: FontWeight.w700),
+        ),
+      ),
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 750),
+            constraints: const BoxConstraints(maxWidth: 800),
             child: Column(children: [
               Container(
-                padding: const EdgeInsets.fromLTRB(16, 18, 16, 12),
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
                 color: AppColors.background,
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const Text('City Traffic Reports',
-                      style: TextStyle(fontSize: 21, fontWeight: FontWeight.bold, color: AppColors.text)),
-                  const SizedBox(height: 5),
-                  const Text('Explore reported road and traffic problems.',
-                      style: TextStyle(color: AppColors.muted)),
-                  const SizedBox(height: 14),
+                  const Text(
+                    'City Traffic Reports',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.text,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Explore reported road and traffic problems across city zones.',
+                    style: TextStyle(color: AppColors.muted, fontSize: 13),
+                  ),
+                  const SizedBox(height: 12),
+                  AnimatedBuilder(
+                    animation: _provider,
+                    builder: (context, _) => _buildStatRow(
+                      total: totalCount,
+                      active: activeCount,
+                      resolved: resolvedCount,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
                   TextField(
                     controller: _searchController,
                     onChanged: _onSearch,
                     decoration: InputDecoration(
                       hintText: 'Search traffic reports...',
                       prefixIcon: const Icon(Icons.search),
-                      suffixIcon: IconButton(
-                        tooltip: 'Clear search',
-                        onPressed: _clearSearch,
-                        icon: const Icon(Icons.close),
-                      ),
+                      suffixIcon: _searchController.text.isNotEmpty
+                          ? IconButton(
+                              tooltip: 'Clear search',
+                              onPressed: _clearSearch,
+                              icon: const Icon(Icons.close),
+                            )
+                          : null,
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  AnimatedBuilder(animation: _provider, builder: (context, _) => Wrap(
-                    spacing: 6, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [
-                    OutlinedButton.icon(
-                      onPressed: _openFilters,
-                      icon: const Icon(Icons.tune),
-                      label: Text(_provider.filters.isActive ? 'Filters applied' : 'Filters'),
-                    ),
-                    const SizedBox(width: 6),
-                    OutlinedButton.icon(
-                      onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => TrafficIncidentMapScreen(service: _service, openedFromList: true),
+                  const SizedBox(height: 10),
+                  AnimatedBuilder(
+                    animation: _provider,
+                    builder: (context, _) => Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white,
+                          ),
+                          onPressed: _openReportSheet,
+                          icon: const Icon(Icons.add_task_rounded, size: 18),
+                          label: const Text('Report Traffic Issue'),
                         ),
-                      ),
-                      icon: const Icon(Icons.map_outlined),
-                      label: const Text('Map'),
-                    ),
-                    const SizedBox(width: 6),
-                    OutlinedButton.icon(
-                      onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => DepartmentInformationScreen(service: _service),
+                        OutlinedButton.icon(
+                          onPressed: _openFilters,
+                          icon: const Icon(Icons.tune),
+                          label: Text(
+                            _provider.filters.isActive
+                                ? 'Filters applied'
+                                : 'Filters',
+                          ),
                         ),
-                      ),
-                      icon: const Icon(Icons.apartment_outlined),
-                      label: const Text('Departments'),
+                        OutlinedButton.icon(
+                          onPressed: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => TrafficIncidentMapScreen(
+                                service: _service,
+                                openedFromList: true,
+                              ),
+                            ),
+                          ),
+                          icon: const Icon(Icons.map_outlined),
+                          label: const Text('Live Map'),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => DepartmentInformationScreen(
+                                service: _service,
+                              ),
+                            ),
+                          ),
+                          icon: const Icon(Icons.apartment_outlined),
+                          label: const Text('Departments'),
+                        ),
+                        if (_provider.filters.isActive)
+                          IconButton(
+                            tooltip: 'Clear filters',
+                            onPressed: _clearAll,
+                            icon: const Icon(Icons.filter_alt_off_outlined),
+                          ),
+                        if (!_provider.loading)
+                          Text(
+                            '${_provider.total} reports',
+                            style: const TextStyle(
+                              color: AppColors.muted,
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                      ],
                     ),
-                    const SizedBox(width: 6),
-                    if (_provider.filters.isActive)
-                      IconButton(tooltip: 'Clear filters', onPressed: _clearAll, icon: const Icon(Icons.filter_alt_off_outlined)),
-                    if (!_provider.loading)
-                      Text('${_provider.total} reports',
-                          style: const TextStyle(color: AppColors.muted)),
-                  ])),
+                  ),
                 ]),
               ),
               Expanded(
@@ -164,12 +275,22 @@ class _TrafficProblemsScreenState extends State<TrafficProblemsScreen> {
                     );
                   }
                   if (_provider.issues.isEmpty) {
+                    final hasFilters = _provider.filters.isActive ||
+                        _provider.filters.search.trim().isNotEmpty;
                     return _StatusView(
-                      icon: Icons.search_off,
-                      title: 'No traffic reports found',
-                      message: 'Try a different search term or clear filters.',
-                      onRetry: _clearAll,
-                      buttonLabel: 'Clear filters',
+                      icon: hasFilters
+                          ? Icons.search_off
+                          : Icons.traffic_rounded,
+                      title: hasFilters
+                          ? 'No matching traffic reports'
+                          : 'No traffic reports yet',
+                      message: hasFilters
+                          ? 'Try a different search term or clear filters.'
+                          : 'Report potholes, broken traffic lights, roadblocks, or accidents in your area.',
+                      onRetry: hasFilters ? _clearAll : _openReportSheet,
+                      buttonLabel: hasFilters
+                          ? 'Clear filters'
+                          : 'Submit Traffic Report',
                     );
                   }
                   return RefreshIndicator(
@@ -208,6 +329,85 @@ class _TrafficProblemsScreenState extends State<TrafficProblemsScreen> {
             ]),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildStatRow({
+    required int total,
+    required int active,
+    required int resolved,
+  }) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const spacing = 8.0;
+        final cardWidth = (constraints.maxWidth - spacing * 2) / 3;
+        return Row(
+          children: [
+            _statItem('Total Reports', total, AppColors.primary, Icons.assignment_outlined, cardWidth),
+            const SizedBox(width: spacing),
+            _statItem('Active / Open', active, AppColors.warning, Icons.pending_actions_rounded, cardWidth),
+            const SizedBox(width: spacing),
+            _statItem('Resolved', resolved, AppColors.success, Icons.check_circle_outline_rounded, cardWidth),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _statItem(String label, int count, Color color, IconData icon, double width) {
+    return Container(
+      width: width,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.navy.withValues(alpha: 0.04),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(5),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, color: color, size: 16),
+              ),
+              Text(
+                count.toString(),
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.text,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 5),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 11,
+              color: AppColors.muted,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
       ),
     );
   }

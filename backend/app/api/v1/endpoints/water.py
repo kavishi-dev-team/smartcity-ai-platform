@@ -16,6 +16,7 @@ def read_water_issues(
     status: str | None = Query(default=None),
     priority: str | None = Query(default=None),
     subcategory: str | None = Query(default=None),
+    reported_by: int | None = Query(default=None),
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=100),
     db: Session = Depends(get_db),
@@ -26,6 +27,7 @@ def read_water_issues(
         status=status,
         priority=priority,
         subcategory=subcategory,
+        reported_by=reported_by,
         skip=skip,
         limit=limit,
     )

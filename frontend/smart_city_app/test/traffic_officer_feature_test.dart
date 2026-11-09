@@ -7,6 +7,7 @@ import 'package:smart_city_app/features/traffic/models/traffic_officer_model.dar
 import 'package:smart_city_app/features/traffic/services/traffic_service.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   final sample = <String, dynamic>{
     'id': 11, 'title': 'Traffic signal fault', 'description': 'Red light broken',
     'status': 'reported', 'priority': 'high',

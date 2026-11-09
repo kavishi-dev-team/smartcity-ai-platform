@@ -2,8 +2,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:provider/provider.dart';
 
+import '../../../core/location/location_service.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../auth/providers/auth_provider.dart';
+import '../../reporting/widgets/quick_issue_report_sheet.dart';
 import '../models/traffic_issue_model.dart';
 import '../services/traffic_service.dart';
 import 'traffic_problem_details_screen.dart';
@@ -44,6 +48,7 @@ class _TrafficIncidentMapScreenState extends State<TrafficIncidentMapScreen> {
   String _search = '';
   String _status = '';
   TrafficMapMarker? _selected;
+  ResolvedLocation? _trackedLocation;
 
   static const _statuses = <(String, String)>[
     ('', 'All'),
@@ -55,13 +60,23 @@ class _TrafficIncidentMapScreenState extends State<TrafficIncidentMapScreen> {
     ('rejected', 'Rejected'),
   ];
 
+  int? get _reportedBy {
+    final user = context.read<AuthProvider>().user;
+    return (user != null && user.isCitizen) ? user.id : null;
+  }
+
   @override
   void initState() {
     super.initState();
     _ownsService = widget.service == null;
     _service = widget.service ?? TrafficService();
     _selected = widget.focusMarker;
-    _future = _service.getMapMarkers();
+    _future = Future.value(
+      const TrafficMapPage(total: 0, limit: 500, items: []),
+    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _load(keepSelection: true);
+    });
   }
 
   @override
@@ -75,22 +90,43 @@ class _TrafficIncidentMapScreenState extends State<TrafficIncidentMapScreen> {
   void _load({bool keepSelection = false}) {
     setState(() {
       if (!keepSelection) _selected = null;
-      _future = _service.getMapMarkers(search: _search);
+      _future = _service.getMapMarkers(
+        search: _search,
+        reportedBy: _reportedBy,
+      );
     });
   }
 
-  void _applySearch() {
+  Future<void> _applySearch() async {
     final term = _locationSearch.text.trim();
     FocusScope.of(context).unfocus();
-
-    if (term == _search) return;
 
     setState(() {
       _search = term;
       _status = '';
       _selected = null;
-      _future = _service.getMapMarkers(search: term);
+      if (term.isEmpty) {
+        _trackedLocation = null;
+      }
+      _future = _service.getMapMarkers(
+        search: term,
+        reportedBy: _reportedBy,
+      );
     });
+
+    if (term.isNotEmpty) {
+      final matches = await LocationService.searchAddressOrTown(term);
+      if (!mounted) return;
+      if (matches.isNotEmpty) {
+        setState(() => _trackedLocation = matches.first);
+        try {
+          _mapController.move(
+            LatLng(matches.first.latitude, matches.first.longitude),
+            14.0,
+          );
+        } catch (_) {}
+      }
+    }
   }
 
   void _clearSearch() {
@@ -331,29 +367,84 @@ class _TrafficIncidentMapScreenState extends State<TrafficIncidentMapScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    for (final entry in _statuses) ...[
-                      ChoiceChip(
-                        label: Text(entry.$2),
-                        selected: _status == entry.$1,
-                        onSelected: (_) => setState(() {
-                          _status = entry.$1;
-                          _selected = null;
-                        }),
-                      ),
+              ShaderMask(
+                shaderCallback: (Rect bounds) {
+                  return const LinearGradient(
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                    colors: [
+                      Colors.white,
+                      Colors.white,
+                      Colors.transparent,
+                    ],
+                    stops: [0.0, 0.88, 1.0],
+                  ).createShader(bounds);
+                },
+                blendMode: BlendMode.dstIn,
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  physics: const BouncingScrollPhysics(),
+                  child: Row(
+                    children: [
+                      for (final entry in _statuses) ...[
+                        InkWell(
+                          onTap: () => setState(() {
+                            _status = entry.$1;
+                            _selected = null;
+                          }),
+                          borderRadius: BorderRadius.circular(20),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 160),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 7,
+                            ),
+                            decoration: BoxDecoration(
+                              color: _status == entry.$1
+                                  ? AppColors.primary
+                                  : AppColors.lightBlue.withValues(alpha: 0.5),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: _status == entry.$1
+                                    ? AppColors.primary
+                                    : AppColors.border,
+                                width: _status == entry.$1 ? 1.5 : 1,
+                              ),
+                              boxShadow: _status == entry.$1
+                                  ? [
+                                      BoxShadow(
+                                        color: AppColors.primary
+                                            .withValues(alpha: 0.25),
+                                        blurRadius: 6,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ]
+                                  : null,
+                            ),
+                            child: Text(
+                              entry.$2,
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w700,
+                                color: _status == entry.$1
+                                    ? Colors.white
+                                    : AppColors.text,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                      ],
                       const SizedBox(width: 8),
                     ],
-                  ],
+                  ),
                 ),
               ),
             ],
           ),
         ),
         Expanded(
-          child: markers.isEmpty
+          child: markers.isEmpty && _trackedLocation == null
               ? _message(
                   Icons.location_off_outlined,
                   'No matching traffic locations',
@@ -368,30 +459,38 @@ class _TrafficIncidentMapScreenState extends State<TrafficIncidentMapScreen> {
                       // Refit the camera when the search or visible
                       // status changes.
                       key: ValueKey(
-                        'traffic-map-$_search-$_status',
+                        'traffic-map-$_search-$_status-${_trackedLocation?.city}',
                       ),
                       mapController: _mapController,
                       options: MapOptions(
-                        initialCenter: focused != null && hasFocused
+                        initialCenter: _trackedLocation != null
                             ? LatLng(
-                                focused.location.latitude,
-                                focused.location.longitude,
+                                _trackedLocation!.latitude,
+                                _trackedLocation!.longitude,
                               )
-                            : const LatLng(7.8731, 80.7718),
-                        initialZoom: hasFocused ? 14 : 7.5,
-                        initialCameraFit:
-                            hasFocused || markers.length < 2
-                                ? null
-                                : CameraFit.bounds(
-                                    bounds: LatLngBounds.fromPoints([
-                                      for (final m in markers)
-                                        LatLng(
-                                          m.location.latitude,
-                                          m.location.longitude,
-                                        ),
-                                    ]),
-                                    padding: const EdgeInsets.all(56),
-                                  ),
+                            : focused != null && hasFocused
+                                ? LatLng(
+                                    focused.location.latitude,
+                                    focused.location.longitude,
+                                  )
+                                : const LatLng(7.8731, 80.7718),
+                        initialZoom: _trackedLocation != null || hasFocused
+                            ? 14
+                            : 7.5,
+                        initialCameraFit: _trackedLocation != null ||
+                                hasFocused ||
+                                markers.length < 2
+                            ? null
+                            : CameraFit.bounds(
+                                bounds: LatLngBounds.fromPoints([
+                                  for (final m in markers)
+                                    LatLng(
+                                      m.location.latitude,
+                                      m.location.longitude,
+                                    ),
+                                ]),
+                                padding: const EdgeInsets.all(56),
+                              ),
                         onTap: (_, __) => setState(
                           () => _selected = null,
                         ),
@@ -433,6 +532,35 @@ class _TrafficIncidentMapScreenState extends State<TrafficIncidentMapScreen> {
                                           blurRadius: 4,
                                         ),
                                       ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            if (_trackedLocation != null)
+                              Marker(
+                                point: LatLng(
+                                  _trackedLocation!.latitude,
+                                  _trackedLocation!.longitude,
+                                ),
+                                width: 54,
+                                height: 54,
+                                child: Tooltip(
+                                  message:
+                                      'Tracked: ${_trackedLocation!.address}, ${_trackedLocation!.city}',
+                                  child: Container(
+                                    padding: const EdgeInsets.all(6),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.primary,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: Colors.white,
+                                        width: 2.5,
+                                      ),
+                                    ),
+                                    child: const Icon(
+                                      Icons.my_location_rounded,
+                                      color: Colors.white,
+                                      size: 20,
                                     ),
                                   ),
                                 ),
@@ -552,6 +680,15 @@ class _TrafficIncidentMapScreenState extends State<TrafficIncidentMapScreen> {
         appBar: AppBar(
           title: const Text('Traffic Incident Map'),
           actions: [
+            IconButton(
+              onPressed: () => QuickIssueReportSheet.show(
+                context,
+                initialCategory: 'traffic',
+                onSubmitted: () => _load(keepSelection: false),
+              ),
+              tooltip: 'Submit Traffic Report',
+              icon: const Icon(Icons.add_circle_outline_rounded),
+            ),
             IconButton(
               onPressed: _switchToList,
               tooltip: 'Switch to List View',

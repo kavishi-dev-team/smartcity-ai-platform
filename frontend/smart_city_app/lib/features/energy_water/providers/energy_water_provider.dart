@@ -7,9 +7,24 @@ import '../models/energy_water_statistics_model.dart';
 
 class EnergyWaterProvider extends ChangeNotifier {
   final EnergyWaterService _service;
+  bool _disposed = false;
+  int? reportedBy;
 
-  EnergyWaterProvider({EnergyWaterService? service})
+  EnergyWaterProvider({EnergyWaterService? service, this.reportedBy})
       : _service = service ?? EnergyWaterService();
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
+
+  @override
+  void notifyListeners() {
+    if (!_disposed) {
+      super.notifyListeners();
+    }
+  }
 
   List<EnergyIssue> _energyIssues = [];
   bool _isLoading = false;
@@ -35,6 +50,7 @@ class EnergyWaterProvider extends ChangeNotifier {
         search: _search,
         status: _status,
         priority: _priority,
+        reportedBy: reportedBy,
       );
     } catch (e) {
       _error = 'Failed to load energy reports';
@@ -84,6 +100,7 @@ class EnergyWaterProvider extends ChangeNotifier {
         status: _waterStatus,
         priority: _waterPriority,
         leakageOnly: leakageOnly,
+        reportedBy: reportedBy,
       );
     } catch (e) {
       _waterError = 'Failed to load water reports';
@@ -134,6 +151,7 @@ class EnergyWaterProvider extends ChangeNotifier {
         status: _leakageStatus,
         priority: _leakageSeverity,
         leakageOnly: true,
+        reportedBy: reportedBy,
       );
     } catch (e) {
       _leakageError = 'Failed to load leakage reports';
@@ -175,7 +193,10 @@ class EnergyWaterProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      _stats = await _service.fetchStatistics(_statsCategory);
+      _stats = await _service.fetchStatistics(
+        _statsCategory,
+        reportedBy: reportedBy,
+      );
     } catch (e) {
       _statsError = 'Failed to load statistics';
     } finally {

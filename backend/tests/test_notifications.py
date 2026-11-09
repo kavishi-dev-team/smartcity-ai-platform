@@ -269,14 +269,11 @@ def test_user_with_no_notifications(client):
     ).json() == {"unread_count": 0}
 
 
-def test_pending_authentication_blocks_access(client):
+def test_fallback_authentication_resolves_user(client):
     client.app.dependency_overrides.pop(
         get_notification_user_id
     )
 
     response = client.get("/api/v1/notifications")
-
-    assert response.status_code == 503
-    assert response.json() == {
-        "detail": "Notification authentication integration is pending."
-    }
+    assert response.status_code == 200
+    assert "items" in response.json()

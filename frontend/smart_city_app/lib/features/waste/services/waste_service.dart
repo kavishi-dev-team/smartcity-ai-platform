@@ -12,13 +12,16 @@ class WasteService {
   Future<Map<String, dynamic>> getWasteIssues({
     int offset = 0,
     int limit = 20,
+    int? reportedBy,
   }) async {
+    final queryParameters = <String, String>{
+      'category': 'waste',
+      'offset': offset.toString(),
+      'limit': limit.toString(),
+      if (reportedBy != null) 'reported_by': reportedBy.toString(),
+    };
     final uri = Uri.parse('$_baseUrl/api/v1/issues').replace(
-      queryParameters: {
-        'category': 'waste',
-        'offset': offset.toString(),
-        'limit': limit.toString(),
-      },
+      queryParameters: queryParameters,
     );
 
     return _getJson(uri);

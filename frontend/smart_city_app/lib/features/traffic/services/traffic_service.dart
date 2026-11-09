@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../../../core/config/app_config.dart';
+import '../../../core/storage/token_storage.dart';
 import '../models/traffic_issue_model.dart';
 import '../models/department_model.dart';
 import '../models/traffic_officer_model.dart';
@@ -15,28 +17,21 @@ class TrafficApiException implements Exception {
 }
 
 class TrafficService {
-  // For Chrome: http://localhost:8000/api/v1
-  // Android emulator: http://10.0.2.2:8000/api/v1
-  // Real device: http://YOUR_COMPUTER_LAN_IP:8000/api/v1
-  static const String defaultBaseUrl = String.fromEnvironment(
-    'TRAFFIC_API_BASE_URL',
-    defaultValue: 'http://localhost:8000/api/v1',
-  );
+  static String get defaultBaseUrl => AppConfig.apiBaseUrl;
 
   final http.Client _client;
   final bool _ownsClient;
   final String baseUrl;
-  // In-memory only. Will be supplied by Member 1 login after integration.
   String? _officerToken;
 
   bool get hasOfficerToken => _officerToken != null && _officerToken!.isNotEmpty;
   void setOfficerToken(String token) => _officerToken = token.trim();
   void clearOfficerToken() => _officerToken = null;
 
-  TrafficService({http.Client? client, String baseUrl = defaultBaseUrl})
+  TrafficService({http.Client? client, String? baseUrl})
       : _client = client ?? http.Client(),
         _ownsClient = client == null,
-        baseUrl = baseUrl.replaceFirst(RegExp(r'/$'), '');
+        baseUrl = (baseUrl ?? defaultBaseUrl).replaceFirst(RegExp(r'/$'), '');
 
   Future<Map<String, dynamic>> _get(Uri uri) async {
     try {
@@ -72,6 +67,7 @@ class TrafficService {
     DateTime? dateTo,
     int limit = 20,
     int offset = 0,
+    int? reportedBy,
   }) async {
     final params = <String, String>{
       'category': 'traffic',
@@ -84,6 +80,7 @@ class TrafficService {
     if (city.trim().isNotEmpty) params['city'] = city.trim();
     if (dateFrom != null) params['date_from'] = trafficDate(dateFrom);
     if (dateTo != null) params['date_to'] = trafficDate(dateTo);
+    if (reportedBy != null) params['reported_by'] = '$reportedBy';
 
     final uri = Uri.parse('$baseUrl/issues').replace(queryParameters: params);
     return TrafficIssuePage.fromJson(await _get(uri));
@@ -95,12 +92,16 @@ class TrafficService {
   }
 
   Future<TrafficMapPage> getMapMarkers({
-    String status = '', String city = '', String search = '',
+    String status = '',
+    String city = '',
+    String search = '',
+    int? reportedBy,
   }) async {
     final params = <String, String>{};
     if (status.trim().isNotEmpty) params['status'] = status.trim();
     if (city.trim().isNotEmpty) params['city'] = city.trim();
     if (search.trim().isNotEmpty) params['search'] = search.trim();
+    if (reportedBy != null) params['reported_by'] = '$reportedBy';
     final uri = Uri.parse('$baseUrl/traffic/map').replace(queryParameters: params);
     return TrafficMapPage.fromJson(await _get(uri));
   }
@@ -132,7 +133,17 @@ class TrafficService {
     String path, {
     Map<String, dynamic>? body,
   }) async {
-    final token = _officerToken;
+    var token = _officerToken;
+    if (token == null || token.isEmpty) {
+      try {
+        token = await TokenStorage().readAccessToken();
+        if (token != null && token.isNotEmpty) {
+          _officerToken = token;
+        }
+      } catch (_) {
+        // Ignore storage exceptions in unit tests or when platform channels are unavailable
+      }
+    }
     if (token == null || token.isEmpty) {
       throw const TrafficApiException('Officer login is required.');
     }

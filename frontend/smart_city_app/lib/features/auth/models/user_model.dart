@@ -30,6 +30,9 @@ class UserModel {
     this.address,
     this.profilePhotoUrl,
     this.createdAt,
+    this.departmentId,
+    this.departmentName,
+    this.position,
   });
 
   final int id;
@@ -42,8 +45,14 @@ class UserModel {
   final String? address;
   final String? profilePhotoUrl;
   final DateTime? createdAt;
+  final int? departmentId;
+  final String? departmentName;
+  final String? position;
 
   bool get isCitizen => role == UserRole.citizen;
+  bool get isSuperAdmin => role == UserRole.superAdmin;
+  bool get isCityManager => role == UserRole.cityManager;
+  bool get isDepartmentOfficer => role == UserRole.departmentOfficer;
 
   /// Super admin, city manager and department officer all use the officer side.
   bool get isStaff => !isCitizen;
@@ -62,6 +71,9 @@ class UserModel {
       createdAt: json['created_at'] == null
           ? null
           : DateTime.tryParse(json['created_at'] as String),
+      departmentId: json['department_id'] as int?,
+      departmentName: json['department_name'] as String?,
+      position: json['position'] as String?,
     );
   }
 }

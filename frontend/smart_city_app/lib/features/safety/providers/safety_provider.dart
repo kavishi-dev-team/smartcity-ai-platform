@@ -10,8 +10,9 @@ const _connectionMessage =
 
 class SafetyProvider extends ChangeNotifier {
   final SafetyService _service;
+  final int? reportedBy;
 
-  SafetyProvider({SafetyService? service})
+  SafetyProvider({SafetyService? service, this.reportedBy})
       : _service = service ?? SafetyService();
 
   bool _disposed = false;
@@ -33,16 +34,17 @@ class SafetyProvider extends ChangeNotifier {
   AirQualityHistory? history;
   String historyPeriod = 'daily';
   bool isLoadingHistory = false;
+  bool isCheckingCustomLocation = false;
   String? historyError;
   int _historyRequest = 0;
 
-  Future<void> loadAirQuality() async {
+  Future<void> loadAirQuality({bool refresh = false}) async {
     isLoadingAir = true;
     airError = null;
     _notify();
 
     try {
-      readings = await _service.fetchLatestAirQuality();
+      readings = await _service.fetchLatestAirQuality(refresh: refresh);
       final stillExists = readings.any((r) => r.area == _selectedArea);
       if (!stillExists) {
         _selectedArea = readings.isEmpty ? null : readings.first.area;
@@ -58,6 +60,43 @@ class SafetyProvider extends ChangeNotifier {
     _notify();
   }
 
+  Future<AirQualityReading?> checkLocationAirQuality({
+    required double lat,
+    required double lon,
+    String? areaName,
+  }) async {
+    isCheckingCustomLocation = true;
+    airError = null;
+    _notify();
+
+    try {
+      final reading = await _service.fetchAirQualityByLocation(
+        lat: lat,
+        lon: lon,
+        area: areaName,
+      );
+      final existingIdx = readings.indexWhere(
+        (r) => r.area.toLowerCase() == reading.area.toLowerCase(),
+      );
+      if (existingIdx >= 0) {
+        readings[existingIdx] = reading;
+      } else {
+        readings = [reading, ...readings];
+      }
+      _selectedArea = reading.area;
+      history = null;
+      historyError = null;
+      isCheckingCustomLocation = false;
+      _notify();
+      return reading;
+    } catch (e) {
+      debugPrint('CUSTOM LOCATION AIR QUALITY ERROR: $e');
+      isCheckingCustomLocation = false;
+      _notify();
+      return null;
+    }
+  }
+
   void selectArea(String area) {
     if (area == _selectedArea) return;
     _selectedArea = area;
@@ -67,7 +106,8 @@ class SafetyProvider extends ChangeNotifier {
   }
 
   Future<void> loadHistory({String? period}) async {
-    final area = selectedReading?.area;
+    final current = selectedReading;
+    final area = current?.area;
     if (period != null) historyPeriod = period;
 
     if (area == null) {
@@ -82,7 +122,12 @@ class SafetyProvider extends ChangeNotifier {
     _notify();
 
     try {
-      final result = await _service.fetchAirQualityHistory(area, historyPeriod);
+      final result = await _service.fetchAirQualityHistory(
+        area,
+        historyPeriod,
+        lat: current?.latitude,
+        lon: current?.longitude,
+      );
       if (request != _historyRequest) return;
       history = result;
     } on ApiException catch (e) {
@@ -185,7 +230,7 @@ class SafetyProvider extends ChangeNotifier {
 
   Future<void> loadSummary() async {
     try {
-      summary = await _service.fetchSafetySummary();
+      summary = await _service.fetchSafetySummary(reportedBy: reportedBy);
     } catch (e) {
       // The cards just show "-" if this fails; the list has its own error state.
       debugPrint('SAFETY SUMMARY ERROR: $e');
@@ -235,6 +280,7 @@ class SafetyProvider extends ChangeNotifier {
         dateTo: problemDateTo,
         page: problemsPage,
         pageSize: problemsPageSize,
+        reportedBy: reportedBy,
       );
       if (request != _problemsRequest) return;
       problems = result.items;

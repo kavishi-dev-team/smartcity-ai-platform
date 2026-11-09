@@ -82,6 +82,11 @@ def send_message(
 
     history = get_chat_messages(db, session_id)
 
+    if not session.title or session.title == "Smart City Conversation":
+        trimmed = request.content.strip()
+        session.title = trimmed[:48] + ("..." if len(trimmed) > 48 else "")
+        db.commit()
+
     user_message = save_chat_message(
         db, session_id, "user", request.content
     )
@@ -89,6 +94,8 @@ def send_message(
     reply_text = generate_assistant_reply(
         request.content,
         history,
+        db=db,
+        user_id=user_id,
     )
 
     assistant_message = save_chat_message(

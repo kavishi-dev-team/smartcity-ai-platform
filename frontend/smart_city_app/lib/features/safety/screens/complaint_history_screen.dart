@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../auth/providers/auth_provider.dart';
+import '../../reporting/widgets/issue_location_tracker_card.dart';
+import '../../reporting/widgets/quick_issue_report_sheet.dart';
 import '../models/safety_issue_model.dart';
 import '../providers/complaint_provider.dart';
 import '../utils/safety_formatters.dart';
@@ -12,12 +15,6 @@ import '../widgets/safety_message_view.dart';
 import 'complaint_details_screen.dart';
 
 /// Complaint history with status tabs, search and a date filter.
-///
-/// Open it from anywhere:
-///   Navigator.push(context, MaterialPageRoute(builder: (_) => const ComplaintHistoryScreen()));
-///
-/// Pass [isOfficer] = true to show the officer tools on the details screen.
-/// TODO: read this from Member 1's logged-in user once auth is merged.
 class ComplaintHistoryScreen extends StatelessWidget {
   final bool isOfficer;
 
@@ -25,9 +22,14 @@ class ComplaintHistoryScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final user = context.watch<AuthProvider>().user;
+    final userIsStaff = user?.isStaff ?? false;
+    final effectiveOfficer = isOfficer || userIsStaff;
+    final reportedBy = (!effectiveOfficer && user != null) ? user.id : null;
     return ChangeNotifierProvider(
-      create: (_) => ComplaintProvider()..loadScreen(),
-      child: _HistoryView(isOfficer: isOfficer),
+      key: ValueKey('complaints-$reportedBy-$effectiveOfficer'),
+      create: (_) => ComplaintProvider(reportedBy: reportedBy)..loadScreen(),
+      child: _HistoryView(isOfficer: effectiveOfficer),
     );
   }
 }
@@ -89,6 +91,14 @@ class _HistoryViewState extends State<_HistoryView> {
     }
   }
 
+  void _openComplaintSheet(ComplaintProvider p) {
+    QuickIssueReportSheet.show(
+      context,
+      initialCategory: 'complaint',
+      onSubmitted: p.loadScreen,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final p = context.watch<ComplaintProvider>();
@@ -108,11 +118,38 @@ class _HistoryViewState extends State<_HistoryView> {
         ),
         actions: [
           IconButton(
+            tooltip: 'Track Complaint Locations on Map',
+            icon: const Icon(Icons.map_outlined),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) =>
+                      const DomainLocationTrackerScreen(category: 'complaint'),
+                ),
+              );
+            },
+          ),
+          IconButton(
+            tooltip: 'Submit Complaint',
+            icon: const Icon(Icons.add_circle_outline_rounded),
+            onPressed: () => _openComplaintSheet(p),
+          ),
+          IconButton(
             tooltip: 'Refresh',
             icon: const Icon(Icons.refresh),
             onPressed: () => p.loadScreen(),
           ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
+        onPressed: () => _openComplaintSheet(p),
+        icon: const Icon(Icons.add_rounded),
+        label: const Text(
+          'New Complaint',
+          style: TextStyle(fontWeight: FontWeight.w700),
+        ),
       ),
       body: Center(
         child: ConstrainedBox(
@@ -186,23 +223,74 @@ class _HistoryViewState extends State<_HistoryView> {
                     ),
                   ),
                 ),
-              SizedBox(
-                height: 46,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  children: [
-                    for (final tab in complaintTabs)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: ChoiceChip(
-                          label: Text('${tab.label} (${p.countFor(tab.key)})'),
-                          selected: p.tabKey == tab.key,
-                          selectedColor: AppColors.primary.withValues(alpha: 0.15),
-                          onSelected: (_) => p.setTab(tab.key),
+              ShaderMask(
+                shaderCallback: (Rect bounds) {
+                  return const LinearGradient(
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                    colors: [
+                      Colors.white,
+                      Colors.white,
+                      Colors.transparent,
+                    ],
+                    stops: [0.0, 0.88, 1.0],
+                  ).createShader(bounds);
+                },
+                blendMode: BlendMode.dstIn,
+                child: SizedBox(
+                  height: 42,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    physics: const BouncingScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: complaintTabs.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 8),
+                    itemBuilder: (context, index) {
+                      final tab = complaintTabs[index];
+                      final isSelected = p.tabKey == tab.key;
+                      return InkWell(
+                        onTap: () => p.setTab(tab.key),
+                        borderRadius: BorderRadius.circular(20),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 160),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? AppColors.primary
+                                : AppColors.lightBlue.withValues(alpha: 0.5),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: isSelected
+                                  ? AppColors.primary
+                                  : AppColors.border,
+                              width: isSelected ? 1.5 : 1,
+                            ),
+                            boxShadow: isSelected
+                                ? [
+                                    BoxShadow(
+                                      color: AppColors.primary
+                                          .withValues(alpha: 0.25),
+                                      blurRadius: 6,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ]
+                                : null,
+                          ),
+                          child: Text(
+                            '${tab.label} (${p.countFor(tab.key)})',
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w700,
+                              color: isSelected ? Colors.white : AppColors.text,
+                            ),
+                          ),
                         ),
-                      ),
-                  ],
+                      );
+                    },
+                  ),
                 ),
               ),
               SizedBox(
@@ -230,9 +318,11 @@ class _HistoryViewState extends State<_HistoryView> {
       );
     }
     if (p.complaints.isEmpty) {
-      return const SafetyMessageView(
+      return SafetyMessageView(
         icon: Icons.inbox_outlined,
         message: 'No complaints found.',
+        actionLabel: 'Submit New Complaint',
+        onAction: () => _openComplaintSheet(p),
       );
     }
 

@@ -1,8 +1,9 @@
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
+import '../../../core/config/app_config.dart';
+import '../../../core/storage/token_storage.dart';
 import '../models/air_quality_model.dart';
 import '../models/safety_alert_model.dart';
 import '../models/safety_issue_model.dart';
@@ -16,18 +17,7 @@ class ApiException implements Exception {
   String toString() => message;
 }
 
-/// TEMPORARY: replace with the team's shared api_constants / api_client
-/// once the Flutter coordinator has set them up.
-String get _baseUrl {
-  const port = 8000; // use 8002 if you run the backend through docker-compose
-  if (kIsWeb) return 'http://127.0.0.1:$port/api/v1';
-  if (defaultTargetPlatform == TargetPlatform.android) {
-    // Android emulator reaches your PC through 10.0.2.2.
-    // On a real phone, use your PC's Wi-Fi IP, e.g. http://192.168.1.10:8000/api/v1
-    return 'http://10.0.2.2:$port/api/v1';
-  }
-  return 'http://127.0.0.1:$port/api/v1';
-}
+String get _baseUrl => AppConfig.apiBaseUrl;
 
 String _dateParam(DateTime d) =>
     '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
@@ -37,11 +27,9 @@ class SafetyService {
 
   SafetyService({http.Client? client}) : _client = client ?? http.Client();
 
-  /// Officer actions need the logged-in user's token. When Member 1's auth is merged,
-  /// set this once at app start, for example:
-  ///   SafetyService.accessTokenProvider = TokenStorage().readAccessToken;
-  /// Until then no token is sent (the backend runs officer endpoints in dev mode).
-  static Future<String?> Function()? accessTokenProvider;
+  /// Officer actions use the logged-in user's JWT token from TokenStorage.
+  static Future<String?> Function()? accessTokenProvider =
+      TokenStorage().readAccessToken;
 
   Future<http.Response> _send(
     String method,
@@ -85,8 +73,13 @@ class SafetyService {
 
   // ---------------- Air quality ----------------
 
-  Future<List<AirQualityReading>> fetchLatestAirQuality() async {
-    final response = await _get(Uri.parse('$_baseUrl/air-quality'));
+  Future<List<AirQualityReading>> fetchLatestAirQuality({
+    bool refresh = false,
+  }) async {
+    final uri = Uri.parse('$_baseUrl/air-quality').replace(
+      queryParameters: refresh ? {'refresh': 'true'} : null,
+    );
+    final response = await _get(uri);
     if (response.statusCode != 200) throw _error(response);
     final data = jsonDecode(response.body) as List<dynamic>;
     return data
@@ -94,12 +87,41 @@ class SafetyService {
         .toList();
   }
 
+  Future<AirQualityReading> fetchAirQualityByLocation({
+    required double lat,
+    required double lon,
+    String? area,
+  }) async {
+    final query = <String, String>{
+      'lat': '$lat',
+      'lon': '$lon',
+      if (area != null && area.trim().isNotEmpty) 'area': area.trim(),
+    };
+    final uri = Uri.parse(
+      '$_baseUrl/air-quality/location',
+    ).replace(queryParameters: query);
+    final response = await _get(uri);
+    if (response.statusCode != 200) throw _error(response);
+    return AirQualityReading.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
   Future<AirQualityHistory> fetchAirQualityHistory(
     String area,
-    String period,
-  ) async {
-    final uri = Uri.parse('$_baseUrl/air-quality/history')
-        .replace(queryParameters: {'area': area, 'period': period});
+    String period, {
+    double? lat,
+    double? lon,
+  }) async {
+    final query = <String, String>{
+      'area': area,
+      'period': period,
+      if (lat != null) 'lat': '$lat',
+      if (lon != null) 'lon': '$lon',
+    };
+    final uri = Uri.parse(
+      '$_baseUrl/air-quality/history',
+    ).replace(queryParameters: query);
     final response = await _get(uri);
 
     if (response.statusCode == 404) {
@@ -142,17 +164,27 @@ class SafetyService {
 
   // ---------------- Safety problems and complaints (public) ----------------
 
-  Future<SafetySummary> fetchSafetySummary() async {
-    final response = await _get(Uri.parse('$_baseUrl/safety/summary'));
+  Future<SafetySummary> fetchSafetySummary({int? reportedBy}) async {
+    final uri = Uri.parse('$_baseUrl/safety/summary').replace(
+      queryParameters: reportedBy != null ? {'reported_by': '$reportedBy'} : null,
+    );
+    final response = await _get(uri);
     if (response.statusCode != 200) throw _error(response);
     return SafetySummary.fromJson(
       jsonDecode(response.body) as Map<String, dynamic>,
     );
   }
 
-  Future<IssueCounts> fetchIssueCounts({String category = 'complaint'}) async {
+  Future<IssueCounts> fetchIssueCounts({
+    String category = 'complaint',
+    int? reportedBy,
+  }) async {
+    final query = <String, String>{
+      'category': category,
+      if (reportedBy != null) 'reported_by': '$reportedBy',
+    };
     final uri = Uri.parse('$_baseUrl/safety/issues/counts')
-        .replace(queryParameters: {'category': category});
+        .replace(queryParameters: query);
     final response = await _get(uri);
     if (response.statusCode != 200) throw _error(response);
     return IssueCounts.fromJson(
@@ -170,6 +202,7 @@ class SafetyService {
     DateTime? dateTo,
     int page = 1,
     int pageSize = 10,
+    int? reportedBy,
   }) async {
     final query = <String, String>{
       'category': category,
@@ -181,6 +214,7 @@ class SafetyService {
     if (priority != null) query['priority'] = priority;
     if (dateFrom != null) query['date_from'] = _dateParam(dateFrom);
     if (dateTo != null) query['date_to'] = _dateParam(dateTo);
+    if (reportedBy != null) query['reported_by'] = '$reportedBy';
 
     final uri =
         Uri.parse('$_baseUrl/safety/issues').replace(queryParameters: query);
