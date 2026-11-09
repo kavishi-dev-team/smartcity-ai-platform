@@ -25,30 +25,41 @@ def count_active_alerts(db: Session) -> int:
     return db.scalar(stmt) or 0
 
 
-def count_open_issues(db: Session, category: str) -> int:
-    stmt = select(func.count(Issue.id)).where(
+def count_open_issues(db: Session, category: str, reported_by: Optional[int] = None) -> int:
+    conditions = [
         Issue.category == category,
         Issue.is_active.is_(True),
         Issue.status.notin_(CLOSED_STATUSES),
-    )
+    ]
+    if reported_by is not None:
+        conditions.append(Issue.reported_by == reported_by)
+    stmt = select(func.count(Issue.id)).where(*conditions)
     return db.scalar(stmt) or 0
 
 
-def count_by_status(db: Session, category: str) -> dict[str, int]:
+def count_by_status(db: Session, category: str, reported_by: Optional[int] = None) -> dict[str, int]:
+    conditions = [Issue.category == category, Issue.is_active.is_(True)]
+    if reported_by is not None:
+        conditions.append(Issue.reported_by == reported_by)
     stmt = (
         select(Issue.status, func.count(Issue.id))
-        .where(Issue.category == category, Issue.is_active.is_(True))
+        .where(*conditions)
         .group_by(Issue.status)
     )
     return {status: count for status, count in db.execute(stmt).all()}
 
 
-def resolved_issue_times(db: Session, category: str) -> list[tuple[datetime, datetime]]:
-    stmt = select(Issue.created_at, Issue.updated_at).where(
+def resolved_issue_times(
+    db: Session, category: str, reported_by: Optional[int] = None
+) -> list[tuple[datetime, datetime]]:
+    conditions = [
         Issue.category == category,
         Issue.is_active.is_(True),
         Issue.status == "resolved",
-    )
+    ]
+    if reported_by is not None:
+        conditions.append(Issue.reported_by == reported_by)
+    stmt = select(Issue.created_at, Issue.updated_at).where(*conditions)
     return [(c, u) for c, u in db.execute(stmt).all()]
 
 
@@ -56,6 +67,7 @@ def resolved_issue_times(db: Session, category: str) -> list[tuple[datetime, dat
 def _filters(
     *,
     category: str,
+    reported_by: Optional[int] = None,
     search: Optional[str],
     statuses: Optional[list[str]],
     priority: Optional[str],
@@ -65,6 +77,8 @@ def _filters(
     reference_id: Optional[int],
 ) -> list:
     conditions = [Issue.category == category, Issue.is_active.is_(True)]
+    if reported_by is not None:
+        conditions.append(Issue.reported_by == reported_by)
     if search:
         like = f"%{search}%"
         match = [Issue.title.ilike(like), Issue.description.ilike(like)]
@@ -96,6 +110,7 @@ def list_issues(
     db: Session,
     *,
     category: str,
+    reported_by: Optional[int] = None,
     search: Optional[str],
     statuses: Optional[list[str]],
     priority: Optional[str],
@@ -107,7 +122,7 @@ def list_issues(
     offset: int,
 ) -> tuple[list[Issue], int]:
     conditions = _filters(
-        category=category, search=search, statuses=statuses, priority=priority,
+        category=category, reported_by=reported_by, search=search, statuses=statuses, priority=priority,
         location=location, start=start, end=end, reference_id=reference_id,
     )
     total = db.scalar(select(func.count(Issue.id)).where(*conditions)) or 0
