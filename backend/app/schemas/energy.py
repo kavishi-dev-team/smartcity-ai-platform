@@ -34,7 +34,8 @@ class EnergyIssueCreate(BaseModel):
     title: str
     description: str
     priority: str = "medium"
+    reported_by: Optional[int] = None
     latitude: float
     longitude: float
     address: Optional[str] = None
-    city: Optional[str] = None    
+    city: Optional[str] = None
