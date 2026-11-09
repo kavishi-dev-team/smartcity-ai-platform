@@ -3,6 +3,8 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../../../core/config/app_config.dart';
+import '../../../core/storage/token_storage.dart';
 import '../models/notification_model.dart';
 
 class NotificationApiException implements Exception {
@@ -18,12 +20,10 @@ class NotificationService {
   // The auth member can supply the current access token through this callback.
   final Future<String?> Function()? accessToken;
 
-  NotificationService({this.accessToken});
+  NotificationService({Future<String?> Function()? accessToken})
+    : accessToken = accessToken ?? TokenStorage().readAccessToken;
 
-  static const _baseUrl = String.fromEnvironment(
-    'API_BASE_URL',
-    defaultValue: 'http://127.0.0.1:8000',
-  );
+  static String get _baseUrl => AppConfig.baseUrl;
 
   Future<Map<String, dynamic>> _request(
     String path, {
