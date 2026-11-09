@@ -9,7 +9,8 @@ class DashboardProvider extends ChangeNotifier {
   DashboardProvider({DashboardService? dashboardService})
       : _dashboardService = dashboardService ?? DashboardService();
 
-  final int userId = 1; // Temporary test user ID
+  int? _userId;
+  int _refreshVersion = 0;
 
   CitizenDashboard? _citizenDashboard;
   OfficerDashboard? _officerDashboard;
@@ -17,20 +18,43 @@ class DashboardProvider extends ChangeNotifier {
   bool _isLoading = false;
   String? _error;
 
+  int? get currentUserId => _userId;
+  int get refreshVersion => _refreshVersion;
   CitizenDashboard? get citizenDashboard => _citizenDashboard;
   OfficerDashboard? get officerDashboard => _officerDashboard;
 
   bool get isLoading => _isLoading;
   String? get error => _error;
 
-  Future<void> loadCitizenDashboard() async {
+  Future<void> loadCitizenDashboard({int? userId}) async {
+    if (userId != null && userId != _userId) {
+      _userId = userId;
+      _citizenDashboard = null;
+    } else if (userId != null) {
+      _userId = userId;
+    }
+
+    if (_userId == null) {
+      _citizenDashboard = CitizenDashboard(
+        totalReports: 0,
+        activeReports: 0,
+        resolvedReports: 0,
+        recentReports: const [],
+      );
+      _isLoading = false;
+      _error = null;
+      notifyListeners();
+      return;
+    }
+
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
       _citizenDashboard =
-          await _dashboardService.getCitizenDashboard(userId);
+          await _dashboardService.getCitizenDashboard(_userId!);
+      _refreshVersion++;
     } catch (e) {
       _error = e.toString();
     } finally {
@@ -47,6 +71,7 @@ class DashboardProvider extends ChangeNotifier {
     try {
       _officerDashboard =
           await _dashboardService.getOfficerDashboard();
+      _refreshVersion++;
     } catch (e) {
       _error = e.toString();
     } finally {
