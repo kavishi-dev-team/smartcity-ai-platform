@@ -9,7 +9,17 @@ class AIProvider extends ChangeNotifier {
 
   AIProvider({AIService? aiService}) : _aiService = aiService ?? AIService();
 
-  final int userId = 1;
+  int _userId = 1;
+  int get userId => _userId;
+
+  void setUserId(int id) {
+    if (id > 0 && _userId != id) {
+      _userId = id;
+      _sessions = [];
+      _messages = [];
+      _currentSessionId = null;
+    }
+  }
 
   List<ChatSession> _sessions = [];
   List<ChatMessage> _messages = [];
