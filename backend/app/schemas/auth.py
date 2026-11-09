@@ -8,6 +8,7 @@ class RegisterRequest(BaseModel):
     full_name: str = Field(min_length=2, max_length=150)
     email: EmailStr
     phone_number: str
+    address: str = Field(min_length=3, max_length=500)
     password: str = Field(max_length=64)
     confirm_password: str
     accept_terms: bool
@@ -18,6 +19,14 @@ class RegisterRequest(BaseModel):
         v = v.strip()
         if len(v) < 2:
             raise ValueError("Full name is too short")
+        return v
+
+    @field_validator("address")
+    @classmethod
+    def _strip_address(cls, v: str) -> str:
+        v = v.strip()
+        if len(v) < 3:
+            raise ValueError("Address is too short")
         return v
 
     @field_validator("phone_number")
