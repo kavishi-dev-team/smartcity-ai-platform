@@ -1,7 +1,11 @@
 import re
 from sqlalchemy.orm import Session
-from google import genai
-from google.genai import types
+try:
+    from google import genai
+    from google.genai import types
+except ImportError:  # pragma: no cover
+    genai = None
+    types = None
 
 from app.models.ai_chat_session import AIChatSession
 from app.models.ai_chat_message import AIChatMessage
@@ -665,7 +669,7 @@ def generate_assistant_reply(
     # 2. Gather live Smart City context from the database & telemetry services
     live_ctx = _gather_live_context(db, user_id, message)
 
-    if not settings.GEMINI_API_KEY:
+    if not settings.GEMINI_API_KEY or genai is None or types is None:
         return _smart_city_local_reply(message, live_ctx, is_greeting=is_greeting)
 
     client = genai.Client(
