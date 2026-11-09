@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../auth/providers/auth_provider.dart';
 import '../models/traffic_issue_model.dart';
+import '../screens/traffic_status_management_screen.dart';
 
 class TrafficIssueCard extends StatelessWidget {
   final TrafficIssue issue;
@@ -23,6 +26,7 @@ class TrafficIssueCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isStaff = context.watch<AuthProvider>().user?.isStaff ?? false;
     final location = issue.location;
     final locationText = (location?.address?.isNotEmpty == true)
         ? location!.address!
@@ -62,8 +66,41 @@ class TrafficIssueCard extends StatelessWidget {
                 Expanded(child: Text(locationText, maxLines: 1, overflow: TextOverflow.ellipsis)),
               ]),
               const SizedBox(height: 7),
-              Text('Reported ${trafficDate(issue.createdAt)}',
-                  style: const TextStyle(color: AppColors.muted, fontSize: 12)),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Report #${issue.id} • Reported ${trafficDate(issue.createdAt)}',
+                      style: const TextStyle(color: AppColors.muted, fontSize: 12),
+                    ),
+                  ),
+                  if (isStaff)
+                    FilledButton.tonalIcon(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.lightBlue,
+                        foregroundColor: AppColors.primaryDark,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        minimumSize: const Size(0, 32),
+                      ),
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => TrafficStatusManagementScreen(
+                              issueId: issue.id,
+                              categoryLabel: 'Traffic',
+                            ),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.manage_accounts_rounded, size: 16),
+                      label: const Text(
+                        'Manage Case',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                ],
+              ),
             ],
           ),
         ),
