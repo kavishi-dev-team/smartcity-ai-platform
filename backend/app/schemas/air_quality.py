@@ -7,6 +7,10 @@ from pydantic import BaseModel
 class AirQualityReadingOut(BaseModel):
     id: int
     area: str
+    district: Optional[str] = None
+    province: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
     aqi: int
     category: str
     health_recommendation: str
@@ -14,7 +18,9 @@ class AirQualityReadingOut(BaseModel):
     pm10: Optional[float] = None
     carbon_monoxide: Optional[float] = None
     nitrogen_dioxide: Optional[float] = None
+    sulphur_dioxide: Optional[float] = None
     ozone: Optional[float] = None
+    uv_index: Optional[float] = None
     source: Optional[str] = None
     recorded_at: datetime
 
