@@ -1,6 +1,9 @@
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:smart_city_app/core/theme/app_colors.dart';
+import 'package:smart_city_app/features/auth/providers/auth_provider.dart';
+import 'package:smart_city_app/features/reporting/widgets/quick_issue_report_sheet.dart';
 
 import '../providers/energy_water_provider.dart';
 import '../widgets/statistics_chart.dart';
@@ -20,7 +23,12 @@ class _EnergyWaterStatisticsScreenState
   @override
   void initState() {
     super.initState();
-    _provider.loadStatistics();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final user = context.read<AuthProvider>().user;
+      _provider.reportedBy = (user != null && user.isCitizen) ? user.id : null;
+      _provider.loadStatistics();
+    });
   }
 
   @override
@@ -32,7 +40,25 @@ class _EnergyWaterStatisticsScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Energy & Water Statistics')),
+      appBar: AppBar(
+        title: const Text('Energy & Water Statistics'),
+        actions: [
+          IconButton(
+            tooltip: 'Submit Report',
+            onPressed: () => QuickIssueReportSheet.show(
+              context,
+              initialCategory: _provider.statsCategory,
+              onSubmitted: _provider.loadStatistics,
+            ),
+            icon: const Icon(Icons.add_circle_outline_rounded),
+          ),
+          IconButton(
+            tooltip: 'Refresh',
+            onPressed: _provider.loadStatistics,
+            icon: const Icon(Icons.refresh_rounded),
+          ),
+        ],
+      ),
       body: ListenableBuilder(
         listenable: _provider,
         builder: (context, _) {
