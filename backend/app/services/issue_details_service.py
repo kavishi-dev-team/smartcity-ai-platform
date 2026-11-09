@@ -182,6 +182,7 @@ def get_issue_details(db: Session, issue_id: int):
         "created_at": issue.created_at,
         "updated_at": issue.updated_at,
         "location": location_data,
+        "locations": [location_data] if location_data else [],
         "attachments": attachment_data,
         "ai_analysis": analysis_data,
         "similar_reports": similar_data,
