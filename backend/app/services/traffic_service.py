@@ -59,13 +59,20 @@ def list_traffic_issues(
     date_to: date | None,
     limit: int,
     offset: int,
+    reported_by: int | None = None,
 ) -> TrafficListOut:
     query = db.query(Issue).filter(Issue.category == "traffic", Issue.is_active.is_(True))
+    if reported_by is not None:
+        query = query.filter(Issue.reported_by == reported_by)
     if search and search.strip():
         term = f"%{search.strip()}%"
         query = query.filter(or_(Issue.title.ilike(term), Issue.description.ilike(term)))
     if status and status.strip():
-        query = query.filter(func.lower(Issue.status) == status.strip().lower())
+        norm_status = status.strip().lower()
+        if norm_status in ("active", "open"):
+            query = query.filter(func.lower(Issue.status) != "resolved")
+        else:
+            query = query.filter(func.lower(Issue.status) == norm_status)
     if priority and priority.strip():
         query = query.filter(func.lower(Issue.priority) == priority.strip().lower())
     if city and city.strip():
@@ -184,7 +191,7 @@ def get_traffic_status_history(db: Session, issue_id: int) -> list[TrafficHistor
 
 def list_traffic_map_markers(
     db: Session, *, status: str | None = None, city: str | None = None,
-    search: str | None = None, limit: int = 500,
+    search: str | None = None, reported_by: int | None = None, limit: int = 500,
 ) -> TrafficMapOut:
     """Latest valid coordinates of active traffic reports; persisted MySQL data only."""
     # One marker per issue, even when an issue has several location updates.
@@ -204,8 +211,14 @@ def list_traffic_map_markers(
             IssueLocation.longitude.between(-180, 180),
         )
     )
+    if reported_by is not None:
+        query = query.filter(Issue.reported_by == reported_by)
     if status and status.strip():
-        query = query.filter(func.lower(Issue.status) == status.strip().lower())
+        norm_status = status.strip().lower()
+        if norm_status in ("active", "open"):
+            query = query.filter(func.lower(Issue.status) != "resolved")
+        else:
+            query = query.filter(func.lower(Issue.status) == norm_status)
     if city and city.strip():
         query = query.filter(IssueLocation.city.ilike(f"%{city.strip()}%"))
     if search and search.strip():
