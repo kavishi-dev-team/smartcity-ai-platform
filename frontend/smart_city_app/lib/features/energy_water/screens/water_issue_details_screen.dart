@@ -1,7 +1,11 @@
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:smart_city_app/core/theme/app_colors.dart';
+import 'package:smart_city_app/features/reporting/widgets/issue_location_tracker_card.dart';
 
+import '../../auth/providers/auth_provider.dart';
+import '../../traffic/screens/traffic_status_management_screen.dart';
 import '../models/water_issue_model.dart';
 import '../models/issue_details_model.dart';
 import '../services/energy_water_service.dart';
@@ -32,9 +36,8 @@ class _WaterIssueDetailsScreenState
   final TextEditingController _noteController =
       TextEditingController();
 
-  // Temporary test user ID.
-  // Replace with logged-in user ID after authentication.
-  final int _currentUserId = 1;
+  int get _currentUserId =>
+      context.read<AuthProvider>().user?.id ?? 1;
 
   @override
   void initState() {
@@ -229,7 +232,21 @@ class _WaterIssueDetailsScreenState
                   ],
                 ),
 
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
+
+                StaffCaseManagementBanner(
+                  issueId: details.id,
+                  categoryLabel: 'Water',
+                  currentStatus: details.status,
+                  currentPriority: details.priority,
+                  onUpdated: () {
+                    if (mounted) {
+                      setState(() {
+                        _loadData();
+                      });
+                    }
+                  },
+                ),
 
                 // Description
                 _section(
@@ -297,32 +314,18 @@ class _WaterIssueDetailsScreenState
                 ),
 
                 // Location
-                _section(
-                  'Location',
-                  Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        location.isEmpty
-                            ? 'Location not available'
-                            : location,
-                        style: const TextStyle(
-                          color: AppColors.text,
-                          fontSize: 15,
-                        ),
-                      ),
-                      if (details.location?.latitude != null &&
-                          details.location?.longitude != null) ...[
-                        const SizedBox(height: 8),
-                        Text(
-                          'Latitude: ${details.location!.latitude}',
-                        ),
-                        Text(
-                          'Longitude: ${details.location!.longitude}',
-                        ),
-                      ],
-                    ],
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: IssueLocationTrackerCard(
+                    title: details.title,
+                    category: 'water',
+                    address: details.location?.address ??
+                        (location.isNotEmpty ? location : null),
+                    city: details.location?.city,
+                    latitude: details.location?.latitude,
+                    longitude: details.location?.longitude,
+                    priority: details.priority,
+                    status: details.status,
                   ),
                 ),
 
