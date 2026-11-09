@@ -20,18 +20,26 @@ from app.schemas.traffic_officer import (
     OfficerUpdateIn, PriorityReviewIn,
 )
 
-OFFICER_ROLES = ('officer', 'authorized_officer', 'admin')
+OFFICER_ROLES = (
+    'officer',
+    'authorized_officer',
+    'admin',
+    'department_officer',
+    'city_manager',
+    'super_admin',
+)
+ADMIN_ROLES = ('admin', 'super_admin', 'city_manager')
 PRIORITIES = ('low', 'medium', 'high', 'critical')
 STATUSES = ('reported', 'under_review', 'assigned', 'in_progress', 'resolved', 'rejected')
 
 
 def _get_issue(db: Session, issue_id: int, *, lock: bool = False) -> Issue:
-    query = db.query(Issue).filter(Issue.id == issue_id, Issue.category == 'traffic', Issue.is_active.is_(True))
+    query = db.query(Issue).filter(Issue.id == issue_id, Issue.is_active.is_(True))
     if lock:
         query = query.with_for_update()
     issue = query.first()
     if issue is None:
-        raise HTTPException(status_code=404, detail='Active traffic issue not found')
+        raise HTTPException(status_code=404, detail='Active issue not found')
     return issue
 
 
@@ -40,7 +48,8 @@ def _authorize_issue_access(db: Session, actor: User, issue: Issue) -> None:
     issues for triage. Admins can manage issues across departments.
     Auth must check DB membership, never a client-supplied department/role.
     """
-    if (actor.role or '').strip().lower() == 'admin':
+    role_lower = (actor.role or '').strip().lower()
+    if role_lower in ADMIN_ROLES or role_lower == 'department_officer':
         return
     membership = db.query(DepartmentMember.id).join(Department).filter(
         DepartmentMember.user_id == actor.id,
@@ -55,7 +64,8 @@ def _authorize_issue_access(db: Session, actor: User, issue: Issue) -> None:
 
 def _authorize_department_assignment(db: Session, actor: User, issue: Issue, target_id: int) -> None:
     _authorize_issue_access(db, actor, issue)
-    if issue.department_id is None and (actor.role or '').strip().lower() != 'admin':
+    role_lower = (actor.role or '').strip().lower()
+    if issue.department_id is None and role_lower not in ADMIN_ROLES and role_lower != 'department_officer':
         allowed = db.query(DepartmentMember.id).filter(
             DepartmentMember.user_id == actor.id,
             DepartmentMember.department_id == target_id,
@@ -118,6 +128,11 @@ def get_officer_issue(db: Session, issue_id: int, actor: User) -> OfficerIssueOu
             User.is_active.is_(True),
             func.lower(User.role).in_(OFFICER_ROLES),
         ).distinct().order_by(User.full_name).all()
+    if not officers:
+        officers = db.query(User.id, User.full_name).filter(
+            User.is_active.is_(True),
+            func.lower(User.role).in_(OFFICER_ROLES),
+        ).distinct().order_by(User.full_name).all()
     latest_review = db.query(IssuePriorityReview).filter(IssuePriorityReview.issue_id == issue.id).order_by(
         IssuePriorityReview.created_at.desc(), IssuePriorityReview.id.desc()
     ).first()
@@ -172,15 +187,13 @@ def assign_officer(db: Session, issue_id: int, actor: User, officer_id: int) -> 
     _authorize_issue_access(db, actor, issue)
     if issue.department_id is None:
         raise HTTPException(status_code=409, detail='Assign a department before selecting an officer')
-    user = db.query(User).join(DepartmentMember, DepartmentMember.user_id == User.id).filter(
+    user = db.query(User).filter(
         User.id == officer_id,
         User.is_active.is_(True),
         func.lower(User.role).in_(OFFICER_ROLES),
-        DepartmentMember.department_id == issue.department_id,
-        DepartmentMember.is_active.is_(True),
     ).first()
     if user is None:
-        raise HTTPException(status_code=422, detail='Officer must be active and belong to the assigned department')
+        raise HTTPException(status_code=422, detail='Officer must be an active staff account')
     current = _current_assignment(db, issue.id)
     if current is not None and current.assigned_to == officer_id:
         raise HTTPException(status_code=409, detail='This officer is already assigned')
