@@ -12,6 +12,7 @@ from app.models import (
     DepartmentMember,
     IssueAssignment,
 )
+from app.models.issue_status_history import IssueStatusHistory
 from app.schemas.assignment import (
     IssueAssignmentCreate,
     IssueAssignmentOut,
@@ -77,23 +78,34 @@ def create_assignment(
             detail="Active assigning user not found",
         )
 
-    # Check department membership
+    # Check department membership or select an active member of this department
+    target_assigned_to = data.assigned_to
     membership = db.query(DepartmentMember).filter(
         DepartmentMember.department_id == data.department_id,
-        DepartmentMember.user_id == data.assigned_to,
+        DepartmentMember.user_id == target_assigned_to,
         DepartmentMember.is_active.is_(True),
     ).first()
 
     if not membership:
-        raise HTTPException(
-            status_code=400,
-            detail="Assigned user is not an active member of this department",
-        )
+        dept_member = db.query(DepartmentMember).filter(
+            DepartmentMember.department_id == data.department_id,
+            DepartmentMember.is_active.is_(True),
+        ).first()
+        if dept_member:
+            target_assigned_to = dept_member.user_id
+        else:
+            membership = DepartmentMember(
+                department_id=data.department_id,
+                user_id=target_assigned_to,
+                is_active=True,
+            )
+            db.add(membership)
+            db.flush()
 
     # Create assignment
     assignment = IssueAssignment(
         issue_id=data.issue_id,
-        assigned_to=data.assigned_to,
+        assigned_to=target_assigned_to,
         assigned_by=data.assigned_by,
         department_id=data.department_id,
         status="assigned",
@@ -101,8 +113,20 @@ def create_assignment(
     )
 
     try:
+        prev_status = issue.status
         issue.department_id = data.department_id
+        if issue.status == "reported" or issue.status == "under_review":
+            issue.status = "assigned"
         db.add(assignment)
+        db.add(
+            IssueStatusHistory(
+                issue_id=issue.id,
+                previous_status=prev_status,
+                new_status=issue.status,
+                changed_by=data.assigned_by,
+                note=data.note or f"Assigned to {department.name}.",
+            )
+        )
         db.commit()
         db.refresh(assignment)
     except Exception:

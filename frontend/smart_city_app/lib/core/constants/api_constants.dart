@@ -15,4 +15,8 @@ class ApiConstants {
   static const String me = '/users/me';
   static const String changePassword = '/users/me/password';
   static const String preferences = '/users/me/preferences';
+
+  // Staff & Role Management (Super Admin / City Manager)
+  static const String staffUsers = '/users/staff';
+  static const String departments = '/departments';
 }

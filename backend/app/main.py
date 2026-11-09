@@ -53,7 +53,21 @@ app.include_router(
 app.include_router(assignments.router, prefix="/api/v1")
 app.include_router(departments.router, prefix="/api/v1")
 
-# Shared Issue Map API (also serves the waste issue list/detail routes)
+# Member 6 - Prioritized Issues (must be registered before /issues/{issue_id})
+app.include_router(
+    prioritized_issues.router,
+    prefix="/api/v1/issues",
+    tags=["Prioritized Issues"],
+)
+
+# Member 6 - Issue Priority Reviews
+app.include_router(
+    issue_priority_reviews.router,
+    prefix="/api/v1/issues",
+    tags=["Priority Reviews"],
+)
+
+# Shared Issue Map API (also serves waste, traffic, and general issue routes)
 app.include_router(
     issues.router,
     prefix="/api/v1",
@@ -127,20 +141,6 @@ app.include_router(
     analytics.router,
     prefix="/api/v1/analytics",
     tags=["Analytics"],
-)
-
-# Member 6 - Prioritized Issues
-app.include_router(
-    prioritized_issues.router,
-    prefix="/api/v1/issues",
-    tags=["Prioritized Issues"],
-)
-
-# Member 6 - Issue Priority Reviews
-app.include_router(
-    issue_priority_reviews.router,
-    prefix="/api/v1/issues",
-    tags=["Priority Reviews"],
 )
 
 

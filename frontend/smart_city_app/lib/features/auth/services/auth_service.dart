@@ -17,26 +17,32 @@ class AuthService {
     return Platform.operatingSystem;
   }
 
-  Future<void> register({
+  Future<String?> register({
     required String fullName,
     required String email,
     required String phoneNumber,
+    required String address,
     required String password,
     required String confirmPassword,
     required bool acceptTerms,
   }) async {
-    await _api.post(
+    final data = await _api.post(
       ApiConstants.register,
       auth: false,
       body: {
         'full_name': fullName.trim(),
         'email': email.trim(),
         'phone_number': phoneNumber.trim(),
+        'address': address.trim(),
         'password': password,
         'confirm_password': confirmPassword,
         'accept_terms': acceptTerms,
       },
     );
+    if (data is Map<String, dynamic>) {
+      return data['verification_code'] as String?;
+    }
+    return null;
   }
 
   Future<void> verifyEmail({required String email, required String code}) async {
@@ -47,17 +53,24 @@ class AuthService {
     );
   }
 
-  Future<void> resendVerification(String email) async {
-    await _api.post(
+  Future<String?> resendVerification(String email) async {
+    final data = await _api.post(
       ApiConstants.resendVerification,
       auth: false,
       body: {'email': email.trim()},
     );
+    if (data is Map<String, dynamic>) {
+      return data['verification_code'] as String?;
+    }
+    return null;
   }
 
   /// Logs in and stores the tokens. Throws [ApiException] on failure
   /// (`code == 'email_not_verified'` when the email is not verified yet).
-  Future<AuthResponse> login({required String email, required String password}) async {
+  Future<AuthResponse> login({
+    required String email,
+    required String password,
+  }) async {
     final data = await _api.post(
       ApiConstants.login,
       auth: false,
@@ -91,12 +104,16 @@ class AuthService {
     await _api.tokenStorage.clear();
   }
 
-  Future<void> forgotPassword(String email) async {
-    await _api.post(
+  Future<String?> forgotPassword(String email) async {
+    final data = await _api.post(
       ApiConstants.forgotPassword,
       auth: false,
       body: {'email': email.trim()},
     );
+    if (data is Map<String, dynamic>) {
+      return data['verification_code'] as String?;
+    }
+    return null;
   }
 
   Future<void> resetPassword({

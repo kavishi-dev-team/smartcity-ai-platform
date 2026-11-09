@@ -26,8 +26,9 @@ const List<ComplaintTab> complaintTabs = [
 
 class ComplaintProvider extends ChangeNotifier {
   final SafetyService _service;
+  final int? reportedBy;
 
-  ComplaintProvider({SafetyService? service})
+  ComplaintProvider({SafetyService? service, this.reportedBy})
       : _service = service ?? SafetyService();
 
   bool _disposed = false;
@@ -76,7 +77,10 @@ class ComplaintProvider extends ChangeNotifier {
 
   Future<void> loadCounts() async {
     try {
-      counts = await _service.fetchIssueCounts(category: 'complaint');
+      counts = await _service.fetchIssueCounts(
+        category: 'complaint',
+        reportedBy: reportedBy,
+      );
     } catch (e) {
       debugPrint('COMPLAINT COUNTS ERROR: $e'); // tabs just show no numbers
     }
@@ -98,6 +102,7 @@ class ComplaintProvider extends ChangeNotifier {
         dateTo: dateTo,
         page: page,
         pageSize: pageSize,
+        reportedBy: reportedBy,
       );
       if (request != _listRequest) return;
       complaints = result.items;

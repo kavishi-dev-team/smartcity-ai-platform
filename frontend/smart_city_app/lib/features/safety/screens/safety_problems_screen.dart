@@ -4,13 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../auth/providers/auth_provider.dart';
+import '../../reporting/widgets/issue_location_tracker_card.dart';
+import '../../reporting/widgets/quick_issue_report_sheet.dart';
 import '../models/safety_issue_model.dart';
 import '../providers/safety_provider.dart';
-import '../utils/safety_formatters.dart';
 import '../widgets/safety_filter_sheet.dart';
 import '../widgets/safety_issue_card.dart';
-import '../widgets/safety_message_view.dart';
-import '../widgets/safety_stat_card.dart';
 import 'safety_alerts_screen.dart';
 import 'safety_problem_details_screen.dart';
 
@@ -22,8 +22,11 @@ class SafetyProblemsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final user = context.watch<AuthProvider>().user;
+    final reportedBy = (user != null && user.isCitizen) ? user.id : null;
     return ChangeNotifierProvider(
-      create: (_) => SafetyProvider()..loadProblemsScreen(),
+      key: ValueKey('safety-problems-$reportedBy'),
+      create: (_) => SafetyProvider(reportedBy: reportedBy)..loadProblemsScreen(),
       child: const _ProblemsView(),
     );
   }
@@ -55,10 +58,6 @@ class _ProblemsViewState extends State<_ProblemsView> {
     });
   }
 
-  void _snack(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-  }
-
   void _openDetails(SafetyIssue issue) {
     final provider = context.read<SafetyProvider>();
     Navigator.of(context).push(
@@ -77,172 +76,98 @@ class _ProblemsViewState extends State<_ProblemsView> {
     );
   }
 
+  void _openReportSheet(SafetyProvider p) {
+    QuickIssueReportSheet.show(
+      context,
+      initialCategory: 'safety',
+      onSubmitted: p.loadProblemsScreen,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final p = context.watch<SafetyProvider>();
 
+    final totalCount = p.problemsTotal > 0 ? p.problemsTotal : p.problems.length;
+    final resolvedCount = p.problems
+        .where((i) => ['resolved', 'closed'].contains(i.status.toLowerCase()))
+        .length;
+    final activeCount = p.problems
+        .where((i) => !['resolved', 'closed'].contains(i.status.toLowerCase()))
+        .length;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Safety'),
-        backgroundColor: AppColors.card,
-        foregroundColor: AppColors.text,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        titleTextStyle: const TextStyle(
-          color: AppColors.text,
-          fontSize: 20,
-          fontWeight: FontWeight.bold,
-        ),
+        title: const Text('Safety Problems'),
         actions: [
           IconButton(
+            tooltip: 'Track Safety Locations on Map',
+            icon: const Icon(Icons.map_outlined),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) =>
+                      const DomainLocationTrackerScreen(category: 'safety'),
+                ),
+              );
+            },
+          ),
+          IconButton(
+            tooltip: 'Submit Safety Report',
+            icon: const Icon(Icons.add_circle_outline_rounded),
+            onPressed: () => _openReportSheet(p),
+          ),
+          IconButton(
             tooltip: 'Refresh',
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh_rounded),
             onPressed: () => p.loadProblemsScreen(),
           ),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: p.loadProblemsScreen,
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(16),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 900),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'View verified public safety reports and community guidance.',
-                    style: TextStyle(color: AppColors.muted, fontSize: 14),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          // TODO: export belongs to the analytics module.
-                          onPressed: () => _snack('Export will be available soon.'),
-                          icon: const Icon(Icons.download_outlined),
-                          label: const Text('Export'),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            foregroundColor: AppColors.text,
-                            backgroundColor: AppColors.card,
-                            side: const BorderSide(color: AppColors.border),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          // TODO: open the shared "Report a Problem" screen (features/reporting).
-                          onPressed: () => _snack(
-                            'The report form comes from the shared reporting module.',
-                          ),
-                          icon: const Icon(Icons.add),
-                          label: const Text('Create request'),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  _buildStats(p),
-                  const SizedBox(height: 16),
-                  _buildOverview(p),
-                ],
-              ),
-            ),
-          ),
+      floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
+        onPressed: () => _openReportSheet(p),
+        icon: const Icon(Icons.add_rounded),
+        label: const Text(
+          'New Safety Report',
+          style: TextStyle(fontWeight: FontWeight.w700),
         ),
       ),
-    );
-  }
-
-  // ---------------- 3 stat cards ----------------
-  Widget _buildStats(SafetyProvider p) {
-    final s = p.summary;
-    final percent = s?.resolvedInSlaPercent;
-    final cards = <Widget>[
-      SafetyStatCard(
-        icon: Icons.shield_outlined,
-        label: 'Active alerts',
-        value: s == null ? '-' : '${s.activeAlerts}',
-        accent: AppColors.primary,
-        onTap: _openAlerts,
-      ),
-      SafetyStatCard(
-        icon: Icons.assignment_outlined,
-        label: 'Open reports',
-        value: s == null ? '-' : '${s.openReports}',
-        accent: AppColors.cyan,
-      ),
-      SafetyStatCard(
-        icon: Icons.check_circle_outline,
-        label: 'Resolved in SLA',
-        value: percent == null ? '-' : '$percent%',
-        accent: AppColors.success,
-      ),
-    ];
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final width = (constraints.maxWidth - 12) / 2;
-        return Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          children: [
-            for (final card in cards) SizedBox(width: width, child: card),
-          ],
-        );
-      },
-    );
-  }
-
-  // ---------------- overview card (search + table + paging) ----------------
-  Widget _buildOverview(SafetyProvider p) {
-    const headerStyle = TextStyle(
-      fontSize: 11,
-      fontWeight: FontWeight.w700,
-      letterSpacing: 0.4,
-      color: AppColors.muted,
-    );
-
-    return Card(
-      margin: EdgeInsets.zero,
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16),
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 800),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Safety problems overview',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.text,
-                  ),
-                ),
-                if (p.problemsUpdatedAt != null) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    'Updated ${formatRelative(p.problemsUpdatedAt!)}',
-                    style: const TextStyle(fontSize: 12, color: AppColors.primary),
-                  ),
-                ],
-                const SizedBox(height: 14),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
+                Container(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+                  color: AppColors.background,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'City Safety Reports',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.text,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Inspect public safety hazards, security concerns, and community reports.',
+                        style: TextStyle(color: AppColors.muted, fontSize: 13),
+                      ),
+                      const SizedBox(height: 12),
+                      _buildStatRow(
+                        total: totalCount,
+                        active: activeCount,
+                        resolved: resolvedCount,
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
                         controller: _search,
                         onChanged: _onSearchChanged,
                         textInputAction: TextInputAction.search,
@@ -251,7 +176,7 @@ class _ProblemsViewState extends State<_ProblemsView> {
                           p.setProblemSearch(value);
                         },
                         decoration: InputDecoration(
-                          hintText: 'Search records...',
+                          hintText: 'Search safety reports...',
                           prefixIcon: const Icon(Icons.search),
                           suffixIcon: _search.text.isEmpty
                               ? null
@@ -265,166 +190,258 @@ class _ProblemsViewState extends State<_ProblemsView> {
                                 ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    SizedBox(
-                      width: 48,
-                      height: 48,
-                      child: OutlinedButton(
-                        onPressed: () => showSafetyFilterSheet(context, p),
-                        style: OutlinedButton.styleFrom(
-                          padding: EdgeInsets.zero,
-                          side: const BorderSide(color: AppColors.border),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              foregroundColor: Colors.white,
+                            ),
+                            onPressed: () => _openReportSheet(p),
+                            icon: const Icon(Icons.add_task_rounded, size: 18),
+                            label: const Text('Report Safety Issue'),
                           ),
-                        ),
-                        child: Badge(
-                          isLabelVisible: p.hasProblemFilters,
-                          child: const Icon(
-                            Icons.filter_list,
-                            color: AppColors.text,
+                          OutlinedButton.icon(
+                            onPressed: () => showSafetyFilterSheet(context, p),
+                            icon: const Icon(Icons.tune),
+                            label: Text(
+                              p.hasProblemFilters ? 'Filters applied' : 'Filters',
+                            ),
                           ),
-                        ),
+                          OutlinedButton.icon(
+                            onPressed: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) => const DomainLocationTrackerScreen(
+                                    category: 'safety',
+                                  ),
+                                ),
+                              );
+                            },
+                            icon: const Icon(Icons.map_outlined),
+                            label: const Text('Live Map'),
+                          ),
+                          OutlinedButton.icon(
+                            onPressed: _openAlerts,
+                            icon: const Icon(Icons.campaign_outlined),
+                            label: const Text('Safety Alerts'),
+                          ),
+                          if (p.hasProblemFilters)
+                            IconButton(
+                              tooltip: 'Clear filters',
+                              onPressed: p.clearProblemFilters,
+                              icon: const Icon(Icons.filter_alt_off_outlined),
+                            ),
+                          if (!p.isLoadingProblems)
+                            Text(
+                              '$totalCount reports',
+                              style: const TextStyle(
+                                color: AppColors.muted,
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                        ],
                       ),
-                    ),
-                  ],
-                ),
-                if (p.hasProblemFilters)
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: TextButton.icon(
-                      onPressed: p.clearProblemFilters,
-                      icon: const Icon(Icons.close, size: 16),
-                      label: const Text('Clear filters'),
-                    ),
+                    ],
                   ),
+                ),
+                Expanded(
+                  child: p.isLoadingProblems && p.problems.isEmpty
+                      ? const Center(child: CircularProgressIndicator())
+                      : p.problemsError != null && p.problems.isEmpty
+                          ? _statusView(
+                              icon: Icons.wifi_off_outlined,
+                              title: 'Unable to load safety reports',
+                              message: p.problemsError!,
+                              onRetry: () => p.loadProblemsScreen(),
+                            )
+                          : p.problems.isEmpty
+                              ? _statusView(
+                                  icon: p.hasProblemFilters
+                                      ? Icons.search_off
+                                      : Icons.shield_outlined,
+                                  title: p.hasProblemFilters
+                                      ? 'No matching safety reports'
+                                      : 'No safety reports yet',
+                                  message: p.hasProblemFilters
+                                      ? 'Try adjusting your search terms or filters.'
+                                      : 'Report road hazards, street lighting failures, vandalism, or disturbances.',
+                                  buttonLabel: p.hasProblemFilters
+                                      ? 'Clear filters'
+                                      : 'Submit Safety Report',
+                                  onRetry: p.hasProblemFilters
+                                      ? p.clearProblemFilters
+                                      : () => _openReportSheet(p),
+                                )
+                              : RefreshIndicator(
+                                  onRefresh: p.loadProblemsScreen,
+                                  child: ListView.builder(
+                                    physics: const AlwaysScrollableScrollPhysics(),
+                                    padding: const EdgeInsets.fromLTRB(16, 6, 16, 80),
+                                    itemCount: p.problems.length +
+                                        (p.problemsTotalPages > 1 ? 1 : 0),
+                                    itemBuilder: (context, index) {
+                                      if (index >= p.problems.length) {
+                                        return _buildPagingFooter(p);
+                                      }
+                                      final issue = p.problems[index];
+                                      return SafetyIssueRow(
+                                        issue: issue,
+                                        onTap: () => _openDetails(issue),
+                                        onUpdated: p.loadProblemsScreen,
+                                      );
+                                    },
+                                  ),
+                                ),
+                ),
               ],
             ),
           ),
-          Container(
-            color: AppColors.primary.withValues(alpha: 0.06),
-            padding: const EdgeInsets.fromLTRB(16, 10, 4, 10),
-            child: const Row(
-              children: [
-                Expanded(flex: 5, child: Text('REFERENCE / NAME', style: headerStyle)),
-                Expanded(flex: 5, child: Text('TYPE / STATUS', style: headerStyle)),
-                SizedBox(width: 40),
-              ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatRow({
+    required int total,
+    required int active,
+    required int resolved,
+  }) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const spacing = 8.0;
+        final cardWidth = (constraints.maxWidth - spacing * 2) / 3;
+        return Row(
+          children: [
+            _statItem('Total Reports', total, AppColors.error, Icons.assignment_outlined, cardWidth),
+            const SizedBox(width: spacing),
+            _statItem('Active / Open', active, AppColors.warning, Icons.pending_actions_rounded, cardWidth),
+            const SizedBox(width: spacing),
+            _statItem('Resolved', resolved, AppColors.success, Icons.check_circle_outline_rounded, cardWidth),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _statItem(String label, int count, Color color, IconData icon, double width) {
+    return Container(
+      width: width,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.navy.withValues(alpha: 0.04),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(5),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, color: color, size: 16),
+              ),
+              Text(
+                count.toString(),
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.text,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 5),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 11,
+              color: AppColors.muted,
+              fontWeight: FontWeight.w600,
             ),
           ),
-          SizedBox(
-            height: 3,
-            child: p.isLoadingProblems ? const LinearProgressIndicator() : null,
-          ),
-          _buildRows(p),
-          const Divider(height: 1),
-          _buildFooter(p),
         ],
       ),
     );
   }
 
-  Widget _buildRows(SafetyProvider p) {
-    if (p.isLoadingProblems && p.problems.isEmpty) {
-      return const SizedBox(
-        height: 220,
-        child: Center(child: CircularProgressIndicator()),
-      );
-    }
-    if (p.problemsError != null) {
-      return SizedBox(
-        height: 260,
-        child: SafetyMessageView(
-          icon: Icons.cloud_off,
-          message: p.problemsError!,
-          actionLabel: 'Try again',
-          onAction: () => p.loadProblemsScreen(),
+  Widget _statusView({
+    required IconData icon,
+    required String title,
+    required String message,
+    required VoidCallback onRetry,
+    String buttonLabel = 'Try again',
+  }) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 54, color: AppColors.muted),
+            const SizedBox(height: 14),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 8),
+            Text(message, textAlign: TextAlign.center),
+            const SizedBox(height: 18),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: onRetry,
+              child: Text(buttonLabel),
+            ),
+          ],
         ),
-      );
-    }
-    if (p.problems.isEmpty) {
-      return const SizedBox(
-        height: 220,
-        child: SafetyMessageView(
-          icon: Icons.search_off,
-          message: 'No records found.',
-        ),
-      );
-    }
-
-    return Column(
-      children: [
-        for (var i = 0; i < p.problems.length; i++) ...[
-          SafetyIssueRow(
-            issue: p.problems[i],
-            onTap: () => _openDetails(p.problems[i]),
-          ),
-          if (i < p.problems.length - 1) const Divider(height: 1),
-        ],
-      ],
+      ),
     );
   }
 
-  Widget _buildFooter(SafetyProvider p) {
-    Widget pageButton(String label, bool enabled, VoidCallback onTap) {
-      return OutlinedButton(
-        onPressed: enabled ? onTap : null,
-        style: OutlinedButton.styleFrom(
-          minimumSize: const Size(0, 36),
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          foregroundColor: AppColors.text,
-          side: const BorderSide(color: AppColors.border),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        ),
-        child: Text(label, style: const TextStyle(fontSize: 12)),
-      );
-    }
-
+  Widget _buildPagingFooter(SafetyProvider p) {
     return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Wrap(
-        alignment: WrapAlignment.spaceBetween,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        spacing: 12,
-        runSpacing: 10,
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(
-            'Showing ${p.problems.length} of ${p.problemsTotal} records',
-            style: const TextStyle(fontSize: 12, color: AppColors.muted),
+          OutlinedButton(
+            onPressed: p.problemsPage > 1 ? () => p.goToProblemsPage(p.problemsPage - 1) : null,
+            child: const Text('Previous'),
           ),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              pageButton(
-                'Previous',
-                p.problemsPage > 1,
-                () => p.goToProblemsPage(p.problemsPage - 1),
-              ),
-              const SizedBox(width: 6),
-              Container(
-                width: 36,
-                height: 36,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: AppColors.primary,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  '${p.problemsPage}',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 6),
-              pageButton(
-                'Next',
-                p.problemsPage < p.problemsTotalPages,
-                () => p.goToProblemsPage(p.problemsPage + 1),
-              ),
-            ],
+          const SizedBox(width: 12),
+          Text(
+            'Page ${p.problemsPage} of ${p.problemsTotalPages}',
+            style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.text),
+          ),
+          const SizedBox(width: 12),
+          OutlinedButton(
+            onPressed: p.problemsPage < p.problemsTotalPages ? () => p.goToProblemsPage(p.problemsPage + 1) : null,
+            child: const Text('Next'),
           ),
         ],
       ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../reporting/screens/report_details_screen.dart';
 import '../models/safety_alert_model.dart';
 import '../providers/safety_provider.dart';
 import '../utils/safety_formatters.dart';
@@ -152,13 +153,11 @@ class _SafetyAlertDetailsScreenState extends State<SafetyAlertDetailsScreen> {
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton.icon(
-                      // TODO: open the shared report details screen
-                      // (features/reporting) once the reporting module is ready.
                       onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              'Issue #${alert.issueId} will open in the shared report details screen.',
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => ReportDetailsScreen(
+                              issueId: alert.issueId!,
                             ),
                           ),
                         );

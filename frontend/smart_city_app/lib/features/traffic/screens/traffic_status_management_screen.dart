@@ -1,22 +1,175 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../../../core/storage/token_storage.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../auth/models/user_model.dart';
+import '../../auth/providers/auth_provider.dart';
 import '../models/traffic_issue_model.dart';
 import '../models/traffic_officer_model.dart';
 import '../services/traffic_service.dart';
 
-/// Officer-only traffic management.
-///
-/// Until Member 1's shared authentication is connected, a short-lived signed
-/// development token is entered manually. All actions are *server-authorized*;
-/// opening this page or editing a token field never grants officer permission.
+/// Prominent Officer / City Manager / Super Admin Case Management Banner
+/// displayed at the top of every problem details screen.
+class StaffCaseManagementBanner extends StatelessWidget {
+  final int issueId;
+  final String categoryLabel;
+  final String? currentStatus;
+  final String? currentPriority;
+  final TrafficService? service;
+  final VoidCallback? onUpdated;
+
+  const StaffCaseManagementBanner({
+    super.key,
+    required this.issueId,
+    required this.categoryLabel,
+    this.currentStatus,
+    this.currentPriority,
+    this.service,
+    this.onUpdated,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final user = context.watch<AuthProvider>().user;
+    final isStaff = user?.isStaff ?? false;
+    final roleTitle = switch (user?.role) {
+      UserRole.superAdmin => 'Super Admin Control Panel',
+      UserRole.cityManager => 'City Manager Case Control',
+      UserRole.departmentOfficer =>
+        'Department Officer Operations${user?.departmentName != null ? " • ${user!.departmentName}" : ""}',
+      _ => 'Authorized Officer Management',
+    };
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: isStaff
+              ? const [AppColors.navy, AppColors.primary]
+              : [
+                  AppColors.primary.withValues(alpha: 0.08),
+                  AppColors.skyBlue.withValues(alpha: 0.14),
+                ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isStaff
+              ? AppColors.skyBlue.withValues(alpha: 0.45)
+              : AppColors.border,
+        ),
+        boxShadow: isStaff
+            ? [
+                BoxShadow(
+                  color: AppColors.navy.withValues(alpha: 0.16),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ]
+            : null,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(9),
+                decoration: BoxDecoration(
+                  color: isStaff
+                      ? Colors.white.withValues(alpha: 0.18)
+                      : AppColors.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  Icons.admin_panel_settings_rounded,
+                  color: isStaff ? Colors.white : AppColors.primary,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      roleTitle,
+                      style: TextStyle(
+                        color: isStaff ? Colors.white : AppColors.text,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 15,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      isStaff
+                          ? 'Update status (Under Review → Assigned → In Progress → Resolved), assign department & officer, review AI priority, and post citizen updates.'
+                          : 'Authorized officers, city managers, and super admins can assign and update this $categoryLabel report.',
+                      style: TextStyle(
+                        color: isStaff ? AppColors.lightBlue : AppColors.muted,
+                        fontSize: 12.5,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              key: const Key('traffic-open-officer-tools'),
+              style: FilledButton.styleFrom(
+                backgroundColor: isStaff ? Colors.white : AppColors.primary,
+                foregroundColor: isStaff ? AppColors.navy : Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              onPressed: () async {
+                await Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => TrafficStatusManagementScreen(
+                      issueId: issueId,
+                      categoryLabel: categoryLabel,
+                      service: service,
+                    ),
+                  ),
+                );
+                onUpdated?.call();
+              },
+              icon: const Icon(Icons.manage_accounts_rounded, size: 20),
+              label: Text(
+                'Manage $categoryLabel Case',
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Universal Officer / City Manager / Super Admin Case Management Console.
 class TrafficStatusManagementScreen extends StatefulWidget {
   final int issueId;
+  final String categoryLabel;
   final TrafficService? service;
 
   const TrafficStatusManagementScreen({
     super.key,
     required this.issueId,
+    this.categoryLabel = 'City Issue',
     this.service,
   });
 
@@ -45,7 +198,12 @@ class _TrafficStatusManagementScreenState
   String _newStatus = 'reported';
 
   static const _statuses = <String>[
-    'reported', 'under_review', 'assigned', 'in_progress', 'resolved', 'rejected',
+    'reported',
+    'under_review',
+    'assigned',
+    'in_progress',
+    'resolved',
+    'rejected',
   ];
   static const _priorities = <String>['low', 'medium', 'high', 'critical'];
 
@@ -54,7 +212,21 @@ class _TrafficStatusManagementScreenState
     super.initState();
     _ownsService = widget.service == null;
     _service = widget.service ?? TrafficService();
-    if (_service.hasOfficerToken) _load();
+    _initAuthAndLoad();
+  }
+
+  Future<void> _initAuthAndLoad() async {
+    if (!_service.hasOfficerToken) {
+      final savedToken = await TokenStorage().readAccessToken();
+      if (savedToken != null && savedToken.isNotEmpty) {
+        _service.setOfficerToken(savedToken);
+      }
+    }
+    if (mounted && _service.hasOfficerToken) {
+      await _load();
+    } else if (mounted) {
+      setState(() {});
+    }
   }
 
   @override
@@ -80,7 +252,8 @@ class _TrafficStatusManagementScreenState
         _departmentId = data.departmentId;
         _officerId = data.assignedOfficerId;
         _priorityChoice = data.aiRecommendedPriority ?? data.priority;
-        _reviewDecision = data.aiRecommendedPriority == null ? 'override' : 'keep';
+        _reviewDecision =
+            data.aiRecommendedPriority == null ? 'override' : 'keep';
         _newStatus = data.status;
         _loading = false;
       });
@@ -137,13 +310,17 @@ class _TrafficStatusManagementScreenState
 
   void _showMessage(String value, {bool isError = true}) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(value),
-      backgroundColor: isError ? AppColors.error : AppColors.success,
-    ));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(value),
+        backgroundColor: isError ? AppColors.error : AppColors.success,
+      ),
+    );
   }
 
-  Future<void> _save(Future<void> Function() operation, String success, {
+  Future<void> _save(
+    Future<void> Function() operation,
+    String success, {
     bool clearNotes = false,
     bool clearReason = false,
   }) async {
@@ -175,12 +352,16 @@ class _TrafficStatusManagementScreenState
       return;
     }
     final name = data.departments.where((d) => d.id == target).first.name;
-    if (!await _confirm('Confirm department assignment',
-        'Assign report #${data.id} to $name? The previous officer assignment will be cleared.')) {
+    if (!await _confirm(
+      'Confirm department assignment',
+      'Assign report #${data.id} to $name? The previous officer assignment will be cleared.',
+    )) {
       return;
     }
-    await _save(() => _service.assignTrafficDepartment(data.id, target),
-        'Department assigned successfully.');
+    await _save(
+      () => _service.assignTrafficDepartment(data.id, target),
+      'Department assigned successfully.',
+    );
   }
 
   Future<void> _assignOfficer() async {
@@ -196,12 +377,16 @@ class _TrafficStatusManagementScreenState
       return;
     }
     final name = data.officers.where((o) => o.id == target).first.name;
-    if (!await _confirm('Confirm officer assignment',
-        'Assign $name to report #${data.id}?')) {
+    if (!await _confirm(
+      'Confirm officer assignment',
+      'Assign $name to report #${data.id}?',
+    )) {
       return;
     }
-    await _save(() => _service.assignTrafficOfficer(data.id, target),
-        'Officer assigned successfully.');
+    await _save(
+      () => _service.assignTrafficOfficer(data.id, target),
+      'Officer assigned successfully.',
+    );
   }
 
   Future<void> _reviewPriority() async {
@@ -225,12 +410,18 @@ class _TrafficStatusManagementScreenState
         ? 'Keep the AI-recommended ${trafficLabel(data.aiRecommendedPriority!)} priority?'
         : 'Override the current priority to ${trafficLabel(_priorityChoice!)}? Your reason will be recorded.';
     if (!await _confirm('Confirm priority review', message)) return;
-    await _save(() => _service.reviewTrafficPriority(
-          data.id,
-          decision: _reviewDecision,
-          priority: _reviewDecision == 'override' ? _priorityChoice : null,
-          reason: _reviewDecision == 'override' ? _overrideReason.text.trim() : null,
-        ), 'Priority review saved.', clearReason: true);
+    await _save(
+      () => _service.reviewTrafficPriority(
+        data.id,
+        decision: _reviewDecision,
+        priority: _reviewDecision == 'override' ? _priorityChoice : null,
+        reason: _reviewDecision == 'override'
+            ? _overrideReason.text.trim()
+            : null,
+      ),
+      'Priority review saved.',
+      clearReason: true,
+    );
   }
 
   Future<void> _saveUpdate() async {
@@ -243,22 +434,45 @@ class _TrafficStatusManagementScreenState
       _showMessage('Choose a different status or write an update.');
       return;
     }
-    if (!await _confirm('Save traffic report update',
-        'Status: ${_statusLabel(_newStatus)}. '
-        '${internal.isNotEmpty ? "Internal note will be officer-only. " : ""}'
-        '${publicText.isNotEmpty ? "Public update will be visible to citizens." : ""}')) {
+    if (!await _confirm(
+      'Save report update',
+      'Status: ${_statusLabel(_newStatus)}. '
+      '${internal.isNotEmpty ? "Internal note will be officer-only. " : ""}'
+      '${publicText.isNotEmpty ? "Public update will be visible to citizens." : ""}',
+    )) {
       return;
     }
-    await _save(() => _service.saveTrafficOfficerUpdate(
-          data.id,
-          status: _newStatus,
-          internalNote: internal,
-          publicUpdate: publicText,
-        ), 'Traffic report updated.', clearNotes: true);
+    await _save(
+      () => _service.saveTrafficOfficerUpdate(
+        data.id,
+        status: _newStatus,
+        internalNote: internal,
+        publicUpdate: publicText,
+      ),
+      'Report updated successfully.',
+      clearNotes: true,
+    );
   }
 
   String _statusLabel(String value) =>
       value == 'reported' ? 'Submitted' : trafficLabel(value);
+
+  Color _statusChipColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'resolved':
+        return AppColors.success;
+      case 'rejected':
+        return AppColors.error;
+      case 'in_progress':
+        return AppColors.cyan;
+      case 'assigned':
+        return AppColors.primary;
+      case 'under_review':
+        return AppColors.warning;
+      default:
+        return AppColors.primaryDark;
+    }
+  }
 
   Widget _card(String title, IconData icon, List<Widget> children) => Card(
         margin: const EdgeInsets.only(bottom: 14),
@@ -267,13 +481,20 @@ class _TrafficStatusManagementScreenState
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Row(children: [
-                Icon(icon, color: AppColors.primary),
-                const SizedBox(width: 9),
-                Expanded(child: Text(title,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700))),
-              ]),
+              Row(
+                children: [
+                  Icon(icon, color: AppColors.primary),
+                  const SizedBox(width: 9),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                  ),
+                ],
+              ),
               const Divider(height: 22),
               ...children,
             ],
@@ -287,14 +508,24 @@ class _TrafficStatusManagementScreenState
     required List<OfficerChoice> choices,
     required ValueChanged<int?> onChanged,
     String? hint,
-  }) => DropdownButtonFormField<int>(
-        key: ValueKey('officer-option-$label-${value ?? 'none'}-${choices.length}'),
+  }) =>
+      DropdownButtonFormField<int>(
+        key: ValueKey(
+          'officer-option-$label-${value ?? 'none'}-${choices.length}',
+        ),
         initialValue: choices.any((c) => c.id == value) ? value : null,
         isExpanded: true,
-        decoration: InputDecoration(labelText: label, border: const OutlineInputBorder(),
-            helperText: hint),
-        items: [for (final c in choices)
-          DropdownMenuItem(value: c.id, child: Text(c.name, overflow: TextOverflow.ellipsis)),
+        decoration: InputDecoration(
+          labelText: label,
+          border: const OutlineInputBorder(),
+          helperText: hint,
+        ),
+        items: [
+          for (final c in choices)
+            DropdownMenuItem(
+              value: c.id,
+              child: Text(c.name, overflow: TextOverflow.ellipsis),
+            ),
         ],
         onChanged: _saving ? null : onChanged,
       );
@@ -306,44 +537,110 @@ class _TrafficStatusManagementScreenState
             margin: const EdgeInsets.all(20),
             child: Padding(
               padding: const EdgeInsets.all(22),
-              child: Column(mainAxisSize: MainAxisSize.min, children: [
-                const Icon(Icons.admin_panel_settings_outlined,
-                    color: AppColors.primary, size: 52),
-                const SizedBox(height: 12),
-                Text('Officer Access', style: Theme.of(context).textTheme.headlineSmall),
-                const SizedBox(height: 12),
-                const Text('Officer permissions are checked by the FastAPI backend and MySQL user role.',
-                    textAlign: TextAlign.center),
-                const SizedBox(height: 12),
-                const Text('DEVELOPMENT ONLY: Until shared login is integrated, paste a short-lived signed token from the local test helper. Never paste or store production tokens in source code.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: AppColors.muted, fontSize: 12)),
-                const SizedBox(height: 18),
-                TextField(
-                  key: const Key('traffic-officer-token'),
-                  controller: _tokenInput,
-                  obscureText: true,
-                  autocorrect: false,
-                  enableSuggestions: false,
-                  decoration: const InputDecoration(
-                    border: OutlineInputBorder(),
-                    labelText: 'Officer access token',
-                    prefixIcon: Icon(Icons.key_outlined),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.admin_panel_settings_outlined,
+                    color: AppColors.primary,
+                    size: 52,
                   ),
-                  onSubmitted: (_) => _submitToken(),
-                ),
-                const SizedBox(height: 16),
-                FilledButton.icon(
-                  key: const Key('traffic-officer-sign-in'),
-                  onPressed: _submitToken,
-                  icon: const Icon(Icons.lock_open_outlined),
-                  label: const Text('Verify officer access'),
-                ),
-              ]),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Officer & Admin Access',
+                    style: Theme.of(context).textTheme.headlineSmall,
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Officer, City Manager, and Super Admin permissions are verified by the FastAPI backend and MySQL user role.',
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Sign in as a Department Officer, City Manager, or Super Admin, or paste a valid staff token below.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: AppColors.muted, fontSize: 12),
+                  ),
+                  const SizedBox(height: 18),
+                  TextField(
+                    key: const Key('traffic-officer-token'),
+                    controller: _tokenInput,
+                    obscureText: true,
+                    autocorrect: false,
+                    enableSuggestions: false,
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                      labelText: 'Officer access token',
+                      prefixIcon: Icon(Icons.key_outlined),
+                    ),
+                    onSubmitted: (_) => _submitToken(),
+                  ),
+                  const SizedBox(height: 16),
+                  FilledButton.icon(
+                    key: const Key('traffic-officer-sign-in'),
+                    onPressed: _submitToken,
+                    icon: const Icon(Icons.lock_open_outlined),
+                    label: const Text('Verify officer access'),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
       );
+
+  Widget _roleHeaderBanner(TrafficOfficerIssue data) {
+    final user = context.watch<AuthProvider>().user;
+    final roleLabel = user?.role.displayName ?? 'Authorized Officer';
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: AppColors.brandGradient,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.verified_user_rounded,
+              color: Colors.white,
+              size: 26,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$roleLabel • ${widget.categoryLabel} Management',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  'Signed in as ${user?.fullName ?? "Staff"} • Managing Report #${data.id}',
+                  style: const TextStyle(
+                    color: AppColors.lightBlue,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _content(TrafficOfficerIssue data) => Center(
         child: ConstrainedBox(
@@ -351,63 +648,198 @@ class _TrafficStatusManagementScreenState
           child: ListView(
             padding: const EdgeInsets.fromLTRB(14, 14, 14, 30),
             children: [
+              _roleHeaderBanner(data),
               _card('Report overview', Icons.fact_check_outlined, [
                 Text(data.title, style: Theme.of(context).textTheme.titleLarge),
                 const SizedBox(height: 5),
-                Text('Report #${data.id}   •   ${data.description}',
-                    style: const TextStyle(color: AppColors.muted)),
+                Text(
+                  'Report #${data.id}   •   ${data.description}',
+                  style: const TextStyle(color: AppColors.muted),
+                ),
                 const SizedBox(height: 11),
-                Wrap(spacing: 8, runSpacing: 6, children: [
-                  Chip(label: Text('Status: ${_statusLabel(data.status)}')),
-                  Chip(label: Text('Priority: ${trafficLabel(data.priority)}')),
-                ]),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: [
+                    Chip(label: Text('Status: ${_statusLabel(data.status)}')),
+                    Chip(
+                      label: Text('Priority: ${trafficLabel(data.priority)}'),
+                    ),
+                    if (data.departmentName != null)
+                      Chip(label: Text('Dept: ${data.departmentName}')),
+                    if (data.assignedOfficerName != null)
+                      Chip(label: Text('Officer: ${data.assignedOfficerName}')),
+                  ],
+                ),
+              ]),
+              _card('Update status & notes', Icons.edit_note_outlined, [
+                const Text(
+                  'Quick Status Selection (tap a stage below or use the dropdown):',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.muted,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final s in _statuses)
+                      ChoiceChip(
+                        label: Text(
+                          _statusLabel(s),
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: _newStatus == s
+                                ? _statusChipColor(s)
+                                : AppColors.text,
+                          ),
+                        ),
+                        selected: _newStatus == s,
+                        selectedColor: _statusChipColor(
+                          s,
+                        ).withValues(alpha: 0.16),
+                        side: BorderSide(
+                          color: _newStatus == s
+                              ? _statusChipColor(s)
+                              : AppColors.border,
+                        ),
+                        onSelected: _saving
+                            ? null
+                            : (_) => setState(() => _newStatus = s),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                DropdownButtonFormField<String>(
+                  key: ValueKey('traffic-new-status-$_newStatus'),
+                  initialValue: _statuses.contains(_newStatus)
+                      ? _newStatus
+                      : 'reported',
+                  decoration: const InputDecoration(
+                    labelText: 'Status',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: [
+                    for (final s in _statuses)
+                      DropdownMenuItem(value: s, child: Text(_statusLabel(s))),
+                  ],
+                  onChanged: _saving
+                      ? null
+                      : (v) => setState(() => _newStatus = v!),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  key: const Key('traffic-internal-note'),
+                  controller: _internalNote,
+                  maxLength: 3000,
+                  minLines: 2,
+                  maxLines: 4,
+                  decoration: const InputDecoration(
+                    labelText: 'Internal note (officers & admins only)',
+                    prefixIcon: Icon(Icons.lock_outline),
+                    border: OutlineInputBorder(),
+                    helperText: 'Never displayed to citizens',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  key: const Key('traffic-public-update'),
+                  controller: _publicNote,
+                  maxLength: 3000,
+                  minLines: 2,
+                  maxLines: 4,
+                  decoration: const InputDecoration(
+                    labelText: 'Citizen-visible update',
+                    prefixIcon: Icon(Icons.public),
+                    border: OutlineInputBorder(),
+                    helperText: 'Also appears in the public status timeline',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                FilledButton.icon(
+                  key: const Key('traffic-save-status'),
+                  onPressed: _saving ? null : _saveUpdate,
+                  icon: const Icon(Icons.save_outlined),
+                  label: const Text('Save Status & Notes Update'),
+                ),
               ]),
               _card('Assign department', Icons.apartment_outlined, [
-                Text('Current: ${data.departmentName ?? "Not assigned"}',
-                    style: const TextStyle(color: AppColors.muted)),
+                Text(
+                  'Current: ${data.departmentName ?? "Not assigned"}',
+                  style: const TextStyle(color: AppColors.muted),
+                ),
                 const SizedBox(height: 13),
-                _optionField(label: 'Select department', value: _departmentId,
-                    choices: data.departments,
-                    onChanged: (value) => setState(() {
-                      _departmentId = value;
-                      _officerId = null;
-                    })),
+                _optionField(
+                  label: 'Select department',
+                  value: _departmentId,
+                  choices: data.departments,
+                  onChanged: (value) => setState(() {
+                    _departmentId = value;
+                    _officerId = null;
+                  }),
+                ),
                 const SizedBox(height: 12),
-                Align(alignment: Alignment.centerRight, child: FilledButton.icon(
-                  key: const Key('traffic-assign-department'),
-                  onPressed: _saving || _departmentId == null ? null : _assignDepartment,
-                  icon: const Icon(Icons.check),
-                  label: const Text('Confirm department'),
-                )),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: FilledButton.icon(
+                    key: const Key('traffic-assign-department'),
+                    onPressed: _saving || _departmentId == null
+                        ? null
+                        : _assignDepartment,
+                    icon: const Icon(Icons.check),
+                    label: const Text('Confirm department'),
+                  ),
+                ),
               ]),
               _card('Assign officer', Icons.badge_outlined, [
-                Text('Current: ${data.assignedOfficerName ?? "No officer assigned"}',
-                    style: const TextStyle(color: AppColors.muted)),
+                Text(
+                  'Current: ${data.assignedOfficerName ?? "No officer assigned"}',
+                  style: const TextStyle(color: AppColors.muted),
+                ),
                 const SizedBox(height: 13),
-                _optionField(label: 'Select officer', value: _officerId,
-                    choices: data.officers,
-                    hint: data.departmentId == null
-                        ? 'Assign a department first'
-                        : data.officers.isEmpty ? 'No active officer members in this department' : null,
-                    onChanged: (value) => setState(() => _officerId = value)),
+                _optionField(
+                  label: 'Select officer',
+                  value: _officerId,
+                  choices: data.officers,
+                  hint: data.departmentId == null
+                      ? 'Assign a department first'
+                      : data.officers.isEmpty
+                          ? 'No active officer members in this department'
+                          : null,
+                  onChanged: (value) => setState(() => _officerId = value),
+                ),
                 const SizedBox(height: 12),
-                Align(alignment: Alignment.centerRight, child: FilledButton.icon(
-                  key: const Key('traffic-assign-officer'),
-                  onPressed: _saving || _officerId == null ? null : _assignOfficer,
-                  icon: const Icon(Icons.person_add_alt_1),
-                  label: const Text('Confirm officer'),
-                )),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: FilledButton.icon(
+                    key: const Key('traffic-assign-officer'),
+                    onPressed:
+                        _saving || _officerId == null ? null : _assignOfficer,
+                    icon: const Icon(Icons.person_add_alt_1),
+                    label: const Text('Confirm officer'),
+                  ),
+                ),
               ]),
               _card('Review AI priority', Icons.auto_awesome_outlined, [
-                Text(data.aiRecommendedPriority == null
-                    ? 'No AI recommendation available. Manual review is still possible.'
-                    : 'AI recommendation: ${trafficLabel(data.aiRecommendedPriority!)}',
-                    style: const TextStyle(color: AppColors.muted)),
+                Text(
+                  data.aiRecommendedPriority == null
+                      ? 'No AI recommendation available. Manual review is still possible.'
+                      : 'AI recommendation: ${trafficLabel(data.aiRecommendedPriority!)}',
+                  style: const TextStyle(color: AppColors.muted),
+                ),
                 if (data.latestPriorityReview != null) ...[
                   const SizedBox(height: 7),
-                  Text('Last review: ${trafficLabel(data.latestPriorityReview!.reviewStatus)} '
-                      '→ ${trafficLabel(data.latestPriorityReview!.finalPriority)}',
-                      style: const TextStyle(fontSize: 12, color: AppColors.muted)),
+                  Text(
+                    'Last review: ${trafficLabel(data.latestPriorityReview!.reviewStatus)} '
+                    '→ ${trafficLabel(data.latestPriorityReview!.finalPriority)}',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.muted,
+                    ),
+                  ),
                 ],
                 const SizedBox(height: 10),
                 SegmentedButton<String>(
@@ -427,18 +859,29 @@ class _TrafficStatusManagementScreenState
                   selected: {_reviewDecision},
                   onSelectionChanged: _saving
                       ? null
-                      : (selection) => setState(() => _reviewDecision = selection.first),
+                      : (selection) =>
+                          setState(() => _reviewDecision = selection.first),
                 ),
                 const SizedBox(height: 12),
                 if (_reviewDecision == 'override') ...[
                   DropdownButtonFormField<String>(
-                    key: ValueKey('officer-priority-${_priorityChoice ?? 'none'}'),
-                    initialValue: _priorities.contains(_priorityChoice) ? _priorityChoice : null,
+                    key: ValueKey(
+                      'officer-priority-${_priorityChoice ?? 'none'}',
+                    ),
+                    initialValue: _priorities.contains(_priorityChoice)
+                        ? _priorityChoice
+                        : null,
                     decoration: const InputDecoration(
-                      labelText: 'New priority', border: OutlineInputBorder()),
-                    items: [for (final p in _priorities)
-                      DropdownMenuItem(value: p, child: Text(trafficLabel(p)))],
-                    onChanged: _saving ? null : (v) => setState(() => _priorityChoice = v),
+                      labelText: 'New priority',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: [
+                      for (final p in _priorities)
+                        DropdownMenuItem(value: p, child: Text(trafficLabel(p))),
+                    ],
+                    onChanged: _saving
+                        ? null
+                        : (v) => setState(() => _priorityChoice = v),
                   ),
                   const SizedBox(height: 12),
                   TextField(
@@ -446,74 +889,46 @@ class _TrafficStatusManagementScreenState
                     controller: _overrideReason,
                     decoration: const InputDecoration(
                       labelText: 'Reason for override (required)',
-                      border: OutlineInputBorder()),
-                    minLines: 2, maxLines: 3, maxLength: 1000,
+                      border: OutlineInputBorder(),
+                    ),
+                    minLines: 2,
+                    maxLines: 3,
+                    maxLength: 1000,
                   ),
                 ],
                 const SizedBox(height: 8),
-                Align(alignment: Alignment.centerRight, child: FilledButton.icon(
-                  key: const Key('traffic-review-priority'),
-                  onPressed: _saving ? null : _reviewPriority,
-                  icon: const Icon(Icons.verified_outlined),
-                  label: const Text('Confirm priority review'),
-                )),
-              ]),
-              _card('Update status & notes', Icons.edit_note_outlined, [
-                DropdownButtonFormField<String>(
-                  key: ValueKey('traffic-new-status-$_newStatus'),
-                  initialValue: _statuses.contains(_newStatus) ? _newStatus : 'reported',
-                  decoration: const InputDecoration(
-                    labelText: 'Status', border: OutlineInputBorder()),
-                  items: [for (final s in _statuses)
-                    DropdownMenuItem(value: s, child: Text(_statusLabel(s)))],
-                  onChanged: _saving ? null : (v) => setState(() => _newStatus = v!),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  key: const Key('traffic-internal-note'),
-                  controller: _internalNote,
-                  maxLength: 3000, minLines: 2, maxLines: 4,
-                  decoration: const InputDecoration(
-                    labelText: 'Internal note (officers only)',
-                    prefixIcon: Icon(Icons.lock_outline),
-                    border: OutlineInputBorder(),
-                    helperText: 'Never displayed to citizens',
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: FilledButton.icon(
+                    key: const Key('traffic-review-priority'),
+                    onPressed: _saving ? null : _reviewPriority,
+                    icon: const Icon(Icons.verified_outlined),
+                    label: const Text('Confirm priority review'),
                   ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  key: const Key('traffic-public-update'),
-                  controller: _publicNote,
-                  maxLength: 3000, minLines: 2, maxLines: 4,
-                  decoration: const InputDecoration(
-                    labelText: 'Citizen-visible update',
-                    prefixIcon: Icon(Icons.public),
-                    border: OutlineInputBorder(),
-                    helperText: 'Also appears in the public status timeline',
-                  ),
-                ),
-                const SizedBox(height: 12),
-                FilledButton.icon(
-                  key: const Key('traffic-save-status'),
-                  onPressed: _saving ? null : _saveUpdate,
-                  icon: const Icon(Icons.save_outlined),
-                  label: const Text('Save update'),
                 ),
               ]),
               _card('Recent officer notes & public updates', Icons.history, [
                 if (data.notes.isEmpty)
-                  const Text('No updates recorded yet.',
-                      style: TextStyle(color: AppColors.muted)),
+                  const Text(
+                    'No updates recorded yet.',
+                    style: TextStyle(color: AppColors.muted),
+                  ),
                 for (final note in data.notes) ...[
                   ListTile(
                     contentPadding: EdgeInsets.zero,
-                    leading: Icon(note.visibility == 'internal'
-                        ? Icons.lock_outline : Icons.public,
-                        color: note.visibility == 'internal'
-                            ? AppColors.warning : AppColors.success),
+                    leading: Icon(
+                      note.visibility == 'internal'
+                          ? Icons.lock_outline
+                          : Icons.public,
+                      color: note.visibility == 'internal'
+                          ? AppColors.warning
+                          : AppColors.success,
+                    ),
                     title: Text(note.comment),
-                    subtitle: Text('${note.authorName} • ${trafficLabel(note.visibility)} • '
-                        '${trafficDate(note.createdAt)}'),
+                    subtitle: Text(
+                      '${note.authorName} • ${trafficLabel(note.visibility)} • '
+                      '${trafficDate(note.createdAt)}',
+                    ),
                   ),
                   const Divider(height: 1),
                 ],
@@ -527,7 +942,7 @@ class _TrafficStatusManagementScreenState
   Widget build(BuildContext context) => Scaffold(
         backgroundColor: AppColors.background,
         appBar: AppBar(
-          title: const Text('Traffic Officer Management'),
+          title: Text('${widget.categoryLabel} Case Management'),
           actions: [
             if (_service.hasOfficerToken) ...[
               IconButton(
@@ -543,32 +958,54 @@ class _TrafficStatusManagementScreenState
             ],
           ],
         ),
-        body: Stack(children: [
-          if (!_service.hasOfficerToken)
-            _accessScreen()
-          else if (_loading)
-            const Center(child: CircularProgressIndicator())
-          else if (_error != null)
-            Center(child: Padding(
-              padding: const EdgeInsets.all(22),
-              child: Column(mainAxisSize: MainAxisSize.min, children: [
-                const Icon(Icons.error_outline, size: 46, color: AppColors.error),
-                const SizedBox(height: 12),
-                Text(_error!, textAlign: TextAlign.center),
-                const SizedBox(height: 15),
-                Wrap(spacing: 12, children: [
-                  OutlinedButton(onPressed: _signOut, child: const Text('Change access token')),
-                  FilledButton(onPressed: _load, child: const Text('Try again')),
-                ]),
-              ]),
-            ))
-          else if (_data != null)
-            _content(_data!),
-          if (_saving)
-            const Positioned.fill(child: ColoredBox(
-              color: Color(0x33000000),
-              child: Center(child: CircularProgressIndicator()),
-            )),
-        ]),
+        body: Stack(
+          children: [
+            if (!_service.hasOfficerToken)
+              _accessScreen()
+            else if (_loading)
+              const Center(child: CircularProgressIndicator())
+            else if (_error != null)
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(22),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.error_outline,
+                        size: 46,
+                        color: AppColors.error,
+                      ),
+                      const SizedBox(height: 12),
+                      Text(_error!, textAlign: TextAlign.center),
+                      const SizedBox(height: 15),
+                      Wrap(
+                        spacing: 12,
+                        children: [
+                          OutlinedButton(
+                            onPressed: _signOut,
+                            child: const Text('Change access token'),
+                          ),
+                          FilledButton(
+                            onPressed: _load,
+                            child: const Text('Try again'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else if (_data != null)
+              _content(_data!),
+            if (_saving)
+              const Positioned.fill(
+                child: ColoredBox(
+                  color: Color(0x33000000),
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+              ),
+          ],
+        ),
       );
 }

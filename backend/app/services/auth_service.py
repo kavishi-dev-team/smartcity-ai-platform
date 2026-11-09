@@ -99,6 +99,7 @@ def register(db: Session, data: RegisterRequest) -> User:
         email=_normalize_email(data.email),
         hashed_password=hash_password(data.password),
         phone_number=data.phone_number,
+        address=data.address,
         role=Role.CITIZEN.value,  # the client can never choose its own role
         is_active=True,
         is_email_verified=False,
@@ -112,6 +113,7 @@ def register(db: Session, data: RegisterRequest) -> User:
     db.refresh(user)
 
     _safe_send(email_service.send_verification_code, user.email, user.full_name, code)
+    user.verification_code = code
     return user
 
 
@@ -123,13 +125,14 @@ def verify_email(db: Session, email: str, code: str) -> None:
     db.commit()
 
 
-def resend_verification(db: Session, email: str) -> None:
+def resend_verification(db: Session, email: str) -> str | None:
     user = get_user_by_email(db, email)
     if user is None or user.is_email_verified or not user.is_active:
-        return  # same response either way, so emails cannot be enumerated
+        return None
     code = _issue_code(db, EmailVerification, user)
     db.commit()
     _safe_send(email_service.send_verification_code, user.email, user.full_name, code)
+    return code
 
 
 # --- login / sessions -------------------------------------------------------
@@ -174,7 +177,9 @@ def login(db: Session, data: LoginRequest, ip_address: str | None) -> AuthRespon
         )
 
     tokens = _create_session(db, user, data.device_name, ip_address)
-    return AuthResponse(**tokens.model_dump(), user=UserRead.model_validate(user))
+    from app.services.user_service import enrich_user_read
+
+    return AuthResponse(**tokens.model_dump(), user=enrich_user_read(db, user))
 
 
 def refresh(db: Session, refresh_token: str) -> TokenResponse:
@@ -228,13 +233,14 @@ def revoke_all_sessions(db: Session, user_id: int) -> None:
 
 
 # --- forgot / reset password ------------------------------------------------
-def forgot_password(db: Session, email: str) -> None:
+def forgot_password(db: Session, email: str) -> str | None:
     user = get_user_by_email(db, email)
     if user is None or not user.is_active:
-        return  # same response either way
+        return None
     code = _issue_code(db, PasswordResetToken, user)
     db.commit()
     _safe_send(email_service.send_password_reset_code, user.email, user.full_name, code)
+    return code
 
 
 def reset_password(db: Session, data: ResetPasswordRequest) -> None:

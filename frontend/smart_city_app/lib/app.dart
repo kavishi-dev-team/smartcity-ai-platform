@@ -5,6 +5,7 @@ import 'core/network/api_client.dart';
 import 'core/routing/app_router.dart';
 import 'core/routing/app_routes.dart';
 import 'core/theme/app_colors.dart';
+import 'core/theme/app_theme.dart';
 import 'features/traffic/screens/traffic_problems_screen.dart';
 import 'features/energy_water/screens/energy_problems_screen.dart';
 import 'features/energy_water/screens/water_problems_screen.dart';
@@ -23,6 +24,7 @@ import 'features/dashboard/providers/priority_issue_provider.dart';
 import 'features/dashboard/screens/officer_dashboard_screen.dart';
 
 import 'features/analytics/providers/analytics_provider.dart';
+import 'features/safety/services/safety_service.dart';
 import 'features/waste/screens/waste_problems_screen.dart';
 
 
@@ -47,6 +49,7 @@ class _SmartCityAppState extends State<SmartCityApp> {
   @override
   void initState() {
     super.initState();
+    SafetyService.accessTokenProvider = _api.tokenStorage.readAccessToken;
     _auth.addListener(_onAuthChanged);
   }
 
@@ -115,130 +118,7 @@ class _SmartCityAppState extends State<SmartCityApp> {
 }
 
 
-final ThemeData appTheme = ThemeData(
-  useMaterial3: true,
-  colorScheme: ColorScheme.fromSeed(
-    seedColor: AppColors.primary,
-    brightness: Brightness.light,
-    primary: AppColors.primary,
-    secondary: AppColors.cyan,
-    surface: AppColors.card,
-    error: AppColors.error,
-  ),
-  scaffoldBackgroundColor: AppColors.background,
-
-  appBarTheme: const AppBarTheme(
-    backgroundColor: AppColors.navy,
-    foregroundColor: Colors.white,
-    elevation: 0,
-    centerTitle: false,
-    titleTextStyle: TextStyle(
-      color: Colors.white,
-      fontSize: 20,
-      fontWeight: FontWeight.bold,
-    ),
-  ),
-
-  cardTheme: CardThemeData(
-    color: AppColors.card,
-    elevation: 2,
-    shadowColor: AppColors.primaryDark.withValues(alpha: 0.08),
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(16),
-      side: const BorderSide(
-        color: AppColors.border,
-        width: 1,
-      ),
-    ),
-    margin: const EdgeInsets.all(8),
-  ),
-
-  elevatedButtonTheme: ElevatedButtonThemeData(
-    style: ElevatedButton.styleFrom(
-      backgroundColor: AppColors.primary,
-      foregroundColor: Colors.white,
-      elevation: 0,
-      padding: const EdgeInsets.symmetric(
-        horizontal: 24,
-        vertical: 14,
-      ),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      textStyle: const TextStyle(
-        fontSize: 15,
-        fontWeight: FontWeight.w600,
-      ),
-    ),
-  ),
-
-  inputDecorationTheme: InputDecorationTheme(
-    filled: true,
-    fillColor: AppColors.card,
-    contentPadding: const EdgeInsets.symmetric(
-      horizontal: 16,
-      vertical: 14,
-    ),
-    border: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: const BorderSide(
-        color: AppColors.border,
-      ),
-    ),
-    enabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: const BorderSide(
-        color: AppColors.border,
-      ),
-    ),
-    focusedBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: const BorderSide(
-        color: AppColors.primary,
-        width: 2,
-      ),
-    ),
-    labelStyle: const TextStyle(
-      color: AppColors.muted,
-    ),
-  ),
-
-  dividerTheme: const DividerThemeData(
-    color: AppColors.border,
-    thickness: 1,
-  ),
-
-  textTheme: const TextTheme(
-    headlineLarge: TextStyle(
-      color: AppColors.text,
-      fontSize: 32,
-      fontWeight: FontWeight.bold,
-    ),
-    headlineMedium: TextStyle(
-      color: AppColors.text,
-      fontSize: 26,
-      fontWeight: FontWeight.bold,
-    ),
-    titleLarge: TextStyle(
-      color: AppColors.text,
-      fontSize: 20,
-      fontWeight: FontWeight.w600,
-    ),
-    titleMedium: TextStyle(
-      color: AppColors.text,
-      fontSize: 16,
-      fontWeight: FontWeight.w600,
-    ),
-    bodyLarge: TextStyle(
-      color: AppColors.text,
-      fontSize: 16,
-    ),
-    bodyMedium: TextStyle(
-      color: AppColors.muted,
-      fontSize: 14,
-    ),
-  ),
-);
+final ThemeData appTheme = AppTheme.light;
 
 
 class AppHomePage extends StatelessWidget {
@@ -489,84 +369,217 @@ class EnergyWaterDashboardMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Energy & Water Dashboard'),
+        title: const Text('Energy & Water Utilities Hub'),
+        actions: [
+          IconButton(
+            tooltip: 'Submit Utility Report',
+            onPressed: () => openScreen(
+              context,
+              const EnergyWaterReportScreen(),
+            ),
+            icon: const Icon(Icons.add_location_alt_outlined),
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Energy & Water Management',
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: AppColors.text,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Select a section to explore.',
-              style: TextStyle(color: AppColors.muted),
-            ),
-            const SizedBox(height: 20),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 920),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(22),
+                  decoration: BoxDecoration(
+                    gradient: AppColors.brandGradient,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.navy.withValues(alpha: 0.16),
+                        blurRadius: 16,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.18),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: const Icon(
+                              Icons.bolt_rounded,
+                              color: Colors.white,
+                              size: 30,
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Energy & Water Infrastructure Hub',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                                SizedBox(height: 4),
+                                Text(
+                                  'Monitor power outages, street lighting faults, water pipe leakages, and live utility performance.',
+                                  style: TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 13,
+                                    height: 1.35,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: [
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: AppColors.primaryDark,
+                            ),
+                            onPressed: () => openScreen(
+                              context,
+                              const EnergyWaterReportScreen(),
+                            ),
+                            icon: const Icon(Icons.add_circle_outline, size: 18),
+                            label: const Text('Report Utility Problem'),
+                          ),
+                          OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.white,
+                              side: const BorderSide(color: Colors.white54),
+                            ),
+                            onPressed: () => openScreen(
+                              context,
+                              const WaterLeakageReportsScreen(),
+                            ),
+                            icon: const Icon(Icons.map_outlined, size: 18),
+                            label: const Text('Live Leakage Map'),
+                          ),
+                          OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.white,
+                              side: const BorderSide(color: Colors.white54),
+                            ),
+                            onPressed: () => openScreen(
+                              context,
+                              const EnergyWaterStatisticsScreen(),
+                            ),
+                            icon: const Icon(Icons.bar_chart_rounded, size: 18),
+                            label: const Text('Utility Analytics'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
 
-            DashboardMenuCard(
-              title: 'Energy Problems',
-              subtitle: 'View and manage energy reports',
-              icon: Icons.bolt,
-              color: AppColors.warning,
-              onTap: () => openScreen(
-                context,
-                const EnergyProblemsScreen(),
-              ),
-            ),
+                const SizedBox(height: 24),
 
-            DashboardMenuCard(
-              title: 'Water Problems',
-              subtitle: 'View and manage water reports',
-              icon: Icons.water_drop,
-              color: AppColors.primary,
-              onTap: () => openScreen(
-                context,
-                const WaterProblemsScreen(),
-              ),
-            ),
+                const Text(
+                  'Utility Management Modules',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.text,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Select a module below to inspect reported incidents, officer assignments, or analytics.',
+                  style: TextStyle(color: AppColors.muted, fontSize: 13),
+                ),
+                const SizedBox(height: 14),
 
-            DashboardMenuCard(
-              title: 'Water Leakage Reports',
-              subtitle: 'View leakage reports and map',
-              icon: Icons.location_on,
-              color: AppColors.success,
-              onTap: () => openScreen(
-                context,
-                const WaterLeakageReportsScreen(),
-              ),
-            ),
+                DashboardMenuCard(
+                  title: 'Energy Problems & Outages',
+                  subtitle:
+                      'Inspect power grid outages, street lighting faults, and transformer alerts with full officer case management.',
+                  badge: 'POWER & LIGHTING',
+                  icon: Icons.bolt_rounded,
+                  color: AppColors.warning,
+                  onTap: () => openScreen(
+                    context,
+                    const EnergyProblemsScreen(),
+                  ),
+                ),
 
-            DashboardMenuCard(
-              title: 'Energy & Water Statistics',
-              subtitle: 'View reports and statistics',
-              icon: Icons.bar_chart,
-              color: AppColors.cyan,
-              onTap: () => openScreen(
-                context,
-                const EnergyWaterStatisticsScreen(),
-              ),
-            ),
+                DashboardMenuCard(
+                  title: 'Water Supply Problems',
+                  subtitle:
+                      'Track low pressure, supply interruptions, contamination reports, and municipal repair dispatches.',
+                  badge: 'WATER SUPPLY',
+                  icon: Icons.water_drop_rounded,
+                  color: AppColors.primary,
+                  onTap: () => openScreen(
+                    context,
+                    const WaterProblemsScreen(),
+                  ),
+                ),
 
-            DashboardMenuCard(
-              title: 'Report a Problem',
-              subtitle: 'Submit a new energy or water report',
-              icon: Icons.add_circle_outline,
-              color: AppColors.primary,
-              onTap: () => openScreen(
-                context,
-                const EnergyWaterReportScreen(),
-              ),
+                DashboardMenuCard(
+                  title: 'Water Leakage Reports & Map',
+                  subtitle:
+                      'Interactive Sri Lanka map of active pipe bursts and roadside water leakages with severity pins.',
+                  badge: 'LIVE GIS MAP',
+                  icon: Icons.location_on_rounded,
+                  color: AppColors.success,
+                  onTap: () => openScreen(
+                    context,
+                    const WaterLeakageReportsScreen(),
+                  ),
+                ),
+
+                DashboardMenuCard(
+                  title: 'Energy & Water Statistics',
+                  subtitle:
+                      'Review category breakdowns, resolution rates, and SLA metrics across energy and water utilities.',
+                  badge: 'ANALYTICS',
+                  icon: Icons.bar_chart_rounded,
+                  color: AppColors.cyan,
+                  onTap: () => openScreen(
+                    context,
+                    const EnergyWaterStatisticsScreen(),
+                  ),
+                ),
+
+                DashboardMenuCard(
+                  title: 'Submit Energy or Water Report',
+                  subtitle:
+                      'File a new citizen or field report with GPS coordinates, priority level, and category selection.',
+                  badge: 'NEW REPORT',
+                  icon: Icons.add_circle_outline_rounded,
+                  color: AppColors.primaryDark,
+                  onTap: () => openScreen(
+                    context,
+                    const EnergyWaterReportScreen(),
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -576,6 +589,7 @@ class EnergyWaterDashboardMenu extends StatelessWidget {
 class DashboardMenuCard extends StatelessWidget {
   final String title;
   final String subtitle;
+  final String? badge;
   final IconData icon;
   final Color color;
   final VoidCallback onTap;
@@ -584,6 +598,7 @@ class DashboardMenuCard extends StatelessWidget {
     super.key,
     required this.title,
     required this.subtitle,
+    this.badge,
     required this.icon,
     required this.color,
     required this.onTap,
@@ -592,19 +607,85 @@ class DashboardMenuCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      child: ListTile(
-        contentPadding: const EdgeInsets.all(16),
-        leading: CircleAvatar(
-          backgroundColor: color.withValues(alpha: 0.12),
-          child: Icon(icon, color: color),
-        ),
-        title: Text(
-          title,
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        subtitle: Text(subtitle),
-        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+      margin: const EdgeInsets.only(bottom: 12),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
         onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(icon, color: color, size: 28),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (badge != null) ...[
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: color.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          badge!,
+                          style: TextStyle(
+                            color: color,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.6,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                    ],
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
+                        color: AppColors.text,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        color: AppColors.muted,
+                        fontSize: 13,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.background,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  size: 15,
+                  color: AppColors.primary,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

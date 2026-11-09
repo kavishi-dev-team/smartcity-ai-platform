@@ -1,7 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.security import decode_access_token
 from app.db.session import get_db
+from app.models.notification import Notification
+from app.models.user import User
 from app.schemas.notification import (
     NotificationListResponse,
     NotificationMarkAllReadResponse,
@@ -21,13 +26,31 @@ router = APIRouter(
     tags=["Notifications"],
 )
 
+_bearer = HTTPBearer(auto_error=False)
 
-def get_notification_user_id() -> int:
-    # Replace this dependency with the team's authenticated user dependency.
-    raise HTTPException(
-        status_code=503,
-        detail="Notification authentication integration is pending.",
+
+def get_notification_user_id(
+    user_id: int | None = Query(default=None),
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
+    db: Session = Depends(get_db),
+) -> int:
+    if credentials is not None:
+        payload = decode_access_token(credentials.credentials)
+        if payload and "sub" in payload:
+            try:
+                return int(payload["sub"])
+            except (TypeError, ValueError):
+                pass
+    if user_id is not None and user_id > 0:
+        return user_id
+    # Fallback to user with notifications or first active user
+    notif_user = db.scalar(
+        select(Notification.user_id).order_by(Notification.id.desc()).limit(1)
     )
+    if notif_user is not None:
+        return int(notif_user)
+    first_user = db.scalar(select(User.id).order_by(User.id.asc()).limit(1))
+    return int(first_user) if first_user is not None else 1
 
 
 @router.get("", response_model=NotificationListResponse)

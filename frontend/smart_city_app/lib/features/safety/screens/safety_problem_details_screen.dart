@@ -2,14 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../reporting/widgets/issue_location_tracker_card.dart';
+import '../../traffic/screens/department_information_screen.dart';
+import '../../traffic/screens/traffic_status_management_screen.dart';
 import '../models/safety_issue_model.dart';
 import '../providers/safety_provider.dart';
 import '../utils/safety_formatters.dart';
-import '../widgets/safety_alert_card.dart'; // SeverityBadge, severityColor
-import '../widgets/safety_issue_card.dart'; // status helpers
+import '../widgets/safety_alert_card.dart';
+import '../widgets/safety_issue_card.dart';
 
 class SafetyProblemDetailsScreen extends StatefulWidget {
-  /// The row tapped in the list. Shown immediately while the full details load.
   final SafetyIssue issue;
 
   const SafetyProblemDetailsScreen({super.key, required this.issue});
@@ -43,20 +45,19 @@ class _SafetyProblemDetailsScreenState
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: Text(issue.reference),
-        backgroundColor: AppColors.card,
-        foregroundColor: AppColors.text,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        titleTextStyle: const TextStyle(
-          color: AppColors.text,
-          fontSize: 20,
-          fontWeight: FontWeight.bold,
-        ),
+        title: Text('Safety Problem • ${issue.reference}'),
+        actions: [
+          IconButton(
+            tooltip: 'Refresh',
+            icon: const Icon(Icons.refresh),
+            onPressed: () =>
+                context.read<SafetyProvider>().loadProblemDetail(issue.id),
+          ),
+        ],
       ),
       body: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 900),
+          constraints: const BoxConstraints(maxWidth: 750),
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
@@ -65,56 +66,155 @@ class _SafetyProblemDetailsScreenState
                   padding: const EdgeInsets.only(bottom: 12),
                   child: Text(
                     p.problemDetailError!,
-                    style: const TextStyle(color: AppColors.error, fontSize: 13),
+                    style: const TextStyle(
+                      color: AppColors.error,
+                      fontSize: 13,
+                    ),
                   ),
                 ),
+              // Traffic-style Header Overview Card
               Card(
-                margin: EdgeInsets.zero,
                 child: Padding(
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.all(18),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          SafetyStatusChip(status: issue.status),
-                          const SizedBox(width: 12),
-                          SeverityBadge(severity: issue.priority),
-                        ],
-                      ),
-                      const SizedBox(height: 14),
                       Text(
                         issue.title,
-                        style: const TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.text,
-                        ),
+                        style: Theme.of(context).textTheme.headlineMedium,
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 9,
+                        runSpacing: 8,
+                        children: [
+                          SafetyStatusChip(status: issue.status),
+                          SeverityBadge(severity: issue.priority),
+                          Chip(label: Text('Ref: ${issue.reference}')),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
                       Text(
-                        'Priority: ${issue.priority}',
+                        'Report #${issue.id}  •  Reported ${formatDateTime(issue.createdAt)}',
                         style: const TextStyle(color: AppColors.muted),
                       ),
                     ],
                   ),
                 ),
               ),
+              const SizedBox(height: 8),
+              StaffCaseManagementBanner(
+                issueId: issue.id,
+                categoryLabel: 'Safety',
+                currentStatus: issue.status,
+                currentPriority: issue.priority,
+                onUpdated: () {
+                  if (mounted) {
+                    context.read<SafetyProvider>().loadProblemDetail(issue.id);
+                    context.read<SafetyProvider>().loadProblemsScreen();
+                  }
+                },
+              ),
               _Section(
-                title: 'Description',
+                title: 'Problem Description',
                 icon: Icons.description_outlined,
                 child: Text(
                   issue.description,
                   style: const TextStyle(color: AppColors.text, height: 1.4),
                 ),
               ),
+              const SizedBox(height: 12),
+              IssueLocationTrackerCard(
+                title: issue.title,
+                category: 'safety',
+                address: loaded?.location?.address ?? issue.address,
+                city: loaded?.location?.city ?? issue.city,
+                latitude: loaded?.location?.latitude,
+                longitude: loaded?.location?.longitude,
+                priority: issue.priority,
+                status: issue.status,
+              ),
               _Section(
-                title: 'Location',
+                title: 'Location Details',
                 icon: Icons.location_on_outlined,
                 child: _locationBody(issue, loaded?.location, loading),
               ),
               _Section(
-                title: 'Status timeline',
+                title: 'Responsible Department',
+                icon: Icons.apartment,
+                child: loaded?.department == null
+                    ? const Text('Not assigned yet')
+                    : ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(loaded!.department!.name),
+                        subtitle: const Text(
+                          'View department overview and contact details',
+                        ),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => DepartmentInformationScreen(
+                              departmentId: loaded.department!.id,
+                            ),
+                          ),
+                        ),
+                      ),
+              ),
+              _Section(
+                title: 'AI Analysis Summary',
+                icon: Icons.auto_awesome,
+                child: Text(
+                  loaded?.aiAnalysis?.explanation?.trim().isNotEmpty == true
+                      ? loaded!.aiAnalysis!.explanation!
+                      : 'Automatically triaged by Smart City AI.',
+                ),
+              ),
+              _Section(
+                title: 'Evidence Photos',
+                icon: Icons.photo_library_outlined,
+                child: (loaded?.attachments.isEmpty ?? true)
+                    ? const Text('No evidence photos attached.')
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          for (final photo in loaded!.attachments)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 6),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    photo.fileName,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: SizedBox(
+                                      height: 170,
+                                      width: double.infinity,
+                                      child: Image.network(
+                                        photo.fileUrl,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) =>
+                                            const Center(
+                                          child: Text(
+                                            'Photo preview unavailable',
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
+              ),
+              _Section(
+                title: 'Status Timeline',
                 icon: Icons.timeline,
                 child: _timelineBody(loaded, loading),
               ),
@@ -137,7 +237,11 @@ class _SafetyProblemDetailsScreenState
     );
   }
 
-  Widget _locationBody(SafetyIssue issue, SafetyLocation? location, bool loading) {
+  Widget _locationBody(
+    SafetyIssue issue,
+    SafetyLocation? location,
+    bool loading,
+  ) {
     final address = location?.address ?? issue.address;
     final city = location?.city ?? issue.city;
     if (address == null && city == null && location == null) {
@@ -194,7 +298,7 @@ class _Spinner extends StatelessWidget {
 
 class _TimelineTile extends StatelessWidget {
   final StatusHistoryEntry entry;
-  final bool isLast; // the most recent step is highlighted
+  final bool isLast;
 
   const _TimelineTile({required this.entry, required this.isLast});
 
@@ -244,13 +348,19 @@ class _TimelineTile extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       entry.note!,
-                      style: const TextStyle(color: AppColors.muted, fontSize: 13),
+                      style: const TextStyle(
+                        color: AppColors.muted,
+                        fontSize: 13,
+                      ),
                     ),
                   ],
                   const SizedBox(height: 2),
                   Text(
                     formatDateTime(entry.createdAt),
-                    style: const TextStyle(color: AppColors.muted, fontSize: 11),
+                    style: const TextStyle(
+                      color: AppColors.muted,
+                      fontSize: 11,
+                    ),
                   ),
                 ],
               ),
@@ -296,7 +406,7 @@ class _Section extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            const Divider(height: 22),
             child,
           ],
         ),

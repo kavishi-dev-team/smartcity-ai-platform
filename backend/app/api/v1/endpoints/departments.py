@@ -1,31 +1,37 @@
-from typing import List
-
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.models import Department
-from app.schemas.department import DepartmentOut, DepartmentTrafficIssuesOut
+from app.schemas.department import (
+    DepartmentListOut,
+    DepartmentOut,
+    DepartmentTrafficIssuesOut,
+)
 from app.services.department_service import (
     get_department as get_department_by_id,
     list_department_traffic_issues,
+    list_departments,
 )
 
 router = APIRouter(prefix="/departments", tags=["Departments"])
 
 
-@router.get("", response_model=List[DepartmentOut])
+@router.get("", response_model=DepartmentListOut | list[DepartmentOut])
 def get_departments(
+    search: str | None = Query(default=None),
+    limit: int | None = Query(default=None, ge=1, le=200),
+    offset: int | None = Query(default=None, ge=0),
     db: Session = Depends(get_db),
 ):
-    departments = (
-        db.query(Department)
-        .filter(Department.is_active.is_(True))
-        .order_by(Department.name.asc())
-        .all()
+    page = list_departments(
+        db,
+        search=search,
+        limit=limit if limit is not None else 100,
+        offset=offset if offset is not None else 0,
     )
-
-    return departments
+    if limit is not None or offset is not None or search is not None:
+        return page
+    return page.items
 
 
 @router.get("/{department_id}", response_model=DepartmentOut)
@@ -33,14 +39,7 @@ def get_department(
     department_id: int,
     db: Session = Depends(get_db),
 ):
-    department = (
-        db.query(Department)
-        .filter(
-            Department.id == department_id,
-            Department.is_active.is_(True),
-        )
-        .first()
-    )
+    department = get_department_by_id(db, department_id)
 
     if not department:
         raise HTTPException(

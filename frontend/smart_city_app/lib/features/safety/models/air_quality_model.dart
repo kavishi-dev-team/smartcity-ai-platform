@@ -1,6 +1,10 @@
 class AirQualityReading {
   final int id;
   final String area;
+  final String? district;
+  final String? province;
+  final double? latitude;
+  final double? longitude;
   final int aqi;
   final String category;
   final String healthRecommendation;
@@ -8,13 +12,19 @@ class AirQualityReading {
   final double? pm10;
   final double? carbonMonoxide;
   final double? nitrogenDioxide;
+  final double? sulphurDioxide;
   final double? ozone;
+  final double? uvIndex;
   final String? source;
   final DateTime recordedAt;
 
   const AirQualityReading({
     required this.id,
     required this.area,
+    this.district,
+    this.province,
+    this.latitude,
+    this.longitude,
     required this.aqi,
     required this.category,
     required this.healthRecommendation,
@@ -22,7 +32,9 @@ class AirQualityReading {
     this.pm10,
     this.carbonMonoxide,
     this.nitrogenDioxide,
+    this.sulphurDioxide,
     this.ozone,
+    this.uvIndex,
     this.source,
     required this.recordedAt,
   });
@@ -31,6 +43,10 @@ class AirQualityReading {
     return AirQualityReading(
       id: (json['id'] as num).toInt(),
       area: json['area'] as String,
+      district: json['district'] as String?,
+      province: json['province'] as String?,
+      latitude: (json['latitude'] as num?)?.toDouble(),
+      longitude: (json['longitude'] as num?)?.toDouble(),
       aqi: (json['aqi'] as num).toInt(),
       category: json['category'] as String,
       healthRecommendation: json['health_recommendation'] as String,
@@ -38,7 +54,9 @@ class AirQualityReading {
       pm10: (json['pm10'] as num?)?.toDouble(),
       carbonMonoxide: (json['carbon_monoxide'] as num?)?.toDouble(),
       nitrogenDioxide: (json['nitrogen_dioxide'] as num?)?.toDouble(),
+      sulphurDioxide: (json['sulphur_dioxide'] as num?)?.toDouble(),
       ozone: (json['ozone'] as num?)?.toDouble(),
+      uvIndex: (json['uv_index'] as num?)?.toDouble(),
       source: json['source'] as String?,
       recordedAt: DateTime.parse(json['recorded_at'] as String),
     );

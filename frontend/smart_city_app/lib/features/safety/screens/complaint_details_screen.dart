@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../reporting/widgets/issue_location_tracker_card.dart';
 import '../models/safety_issue_model.dart';
 import '../providers/complaint_provider.dart';
 import '../utils/safety_formatters.dart';
@@ -16,7 +17,7 @@ class ComplaintDetailsScreen extends StatefulWidget {
   /// The complaint tapped in the list. Shown immediately while the full details load.
   final SafetyIssue issue;
 
-  /// Show the officer tools. TODO: read from Member 1's logged-in user.
+  /// Show the officer management panel when logged in as staff.
   final bool isOfficer;
 
   const ComplaintDetailsScreen({
@@ -121,6 +122,17 @@ class _ComplaintDetailsScreenState extends State<ComplaintDetailsScreen> {
                 title: 'Photos',
                 icon: Icons.photo_library_outlined,
                 child: _photos(loaded, loading),
+              ),
+              const SizedBox(height: 12),
+              IssueLocationTrackerCard(
+                title: issue.title,
+                category: 'complaint',
+                address: loaded?.location?.address ?? issue.address,
+                city: loaded?.location?.city ?? issue.city,
+                latitude: loaded?.location?.latitude,
+                longitude: loaded?.location?.longitude,
+                priority: issue.priority,
+                status: issue.status,
               ),
               _Section(
                 title: 'Location',

@@ -10,6 +10,7 @@ class WaterIssueCreate(BaseModel):
     description: str
     subcategory: Optional[str] = None
     priority: str = "medium"
+    reported_by: Optional[int] = None
     latitude: float
     longitude: float
     address: Optional[str] = None

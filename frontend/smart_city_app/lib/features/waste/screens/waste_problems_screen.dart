@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:smart_city_app/core/theme/app_colors.dart';
-import 'package:smart_city_app/features/notifications/screens/notifications_screen.dart';
+import 'package:smart_city_app/features/auth/providers/auth_provider.dart';
+import 'package:smart_city_app/features/reporting/widgets/issue_location_tracker_card.dart';
+import 'package:smart_city_app/features/reporting/widgets/quick_issue_report_sheet.dart';
 
 import '../services/waste_service.dart';
+import '../../traffic/screens/traffic_status_management_screen.dart';
 import 'collection_information_screen.dart';
 import 'recycling_information_screen.dart';
 import 'waste_problem_details_screen.dart';
-import 'waste_separation_guide_screen.dart';
 
 class WasteProblemsScreen extends StatefulWidget {
   const WasteProblemsScreen({super.key});
@@ -23,12 +26,6 @@ class _WasteProblemsScreenState extends State<WasteProblemsScreen> {
   bool _loading = true;
   String? _error;
   String _query = '';
-  bool _showFilters = false;
-
-  String _status = 'All';
-  String _priority = 'All';
-  String _location = 'All';
-  DateTimeRange? _dates;
 
   String _appliedStatus = 'All';
   String _appliedPriority = 'All';
@@ -93,6 +90,9 @@ class _WasteProblemsScreenState extends State<WasteProblemsScreen> {
     });
 
     try {
+      final user = context.read<AuthProvider>().user;
+      final reportedBy = (user != null && user.isCitizen) ? user.id : null;
+
       // Fetch every page so local search and filters cover all reports.
       final loaded = <Map<String, String>>[];
       var offset = 0;
@@ -101,6 +101,7 @@ class _WasteProblemsScreenState extends State<WasteProblemsScreen> {
         final response = await _service.getWasteIssues(
           offset: offset,
           limit: 100,
+          reportedBy: reportedBy,
         );
 
         if (!mounted) return;
@@ -186,10 +187,6 @@ class _WasteProblemsScreenState extends State<WasteProblemsScreen> {
   ].where((active) => active).length;
 
   void _clearFilterSelections() {
-    _status = 'All';
-    _priority = 'All';
-    _location = 'All';
-    _dates = null;
     _appliedStatus = 'All';
     _appliedPriority = 'All';
     _appliedLocation = 'All';
@@ -205,27 +202,6 @@ class _WasteProblemsScreenState extends State<WasteProblemsScreen> {
     });
   }
 
-  void _applyFilters() {
-    setState(() {
-      _appliedStatus = _status;
-      _appliedPriority = _priority;
-      _appliedLocation = _location;
-      _appliedDates = _dates;
-    });
-  }
-
-  Future<void> _pickDates() async {
-    final result = await showDateRangePicker(
-      context: context,
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2100, 12, 31),
-      initialDateRange: _dates,
-    );
-
-    if (!mounted || result == null) return;
-    setState(() => _dates = result);
-  }
-
   String _formatDate(DateTime date) => '${date.day}/${date.month}/${date.year}';
 
   void _openScreen(Widget screen) {
@@ -238,274 +214,369 @@ class _WasteProblemsScreenState extends State<WasteProblemsScreen> {
     super.dispose();
   }
 
+  Future<void> _openWasteFilterSheet() async {
+    String tempStatus = _appliedStatus;
+    String tempPriority = _appliedPriority;
+    String tempLocation = _appliedLocation;
+    DateTimeRange? tempDates = _appliedDates;
+
+    final result = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 20,
+                right: 20,
+                top: 10,
+                bottom: MediaQuery.viewInsetsOf(context).bottom + 20,
+              ),
+              child: SafeArea(
+                top: false,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Expanded(
+                            child: Text(
+                              'Filter Waste Problems',
+                              style: TextStyle(
+                                fontSize: 19,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            icon: const Icon(Icons.close),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        key: ValueKey('filter-status-$tempStatus'),
+                        initialValue: tempStatus,
+                        decoration: const InputDecoration(labelText: 'Status'),
+                        items: _options('status')
+                            .map((s) => DropdownMenuItem(value: s, child: Text(s)))
+                            .toList(),
+                        onChanged: (val) {
+                          if (val != null) setModalState(() => tempStatus = val);
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        key: ValueKey('filter-priority-$tempPriority'),
+                        initialValue: tempPriority,
+                        decoration: const InputDecoration(labelText: 'Priority'),
+                        items: _options('priority')
+                            .map((p) => DropdownMenuItem(value: p, child: Text(p)))
+                            .toList(),
+                        onChanged: (val) {
+                          if (val != null) setModalState(() => tempPriority = val);
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        key: ValueKey('filter-location-$tempLocation'),
+                        initialValue: tempLocation,
+                        decoration: const InputDecoration(labelText: 'Location'),
+                        items: _options('location')
+                            .map((l) => DropdownMenuItem(value: l, child: Text(l)))
+                            .toList(),
+                        onChanged: (val) {
+                          if (val != null) setModalState(() => tempLocation = val);
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      OutlinedButton.icon(
+                        onPressed: () async {
+                          final picked = await showDateRangePicker(
+                            context: context,
+                            firstDate: DateTime(2020),
+                            lastDate: DateTime(2100, 12, 31),
+                            initialDateRange: tempDates,
+                          );
+                          if (picked != null) {
+                            setModalState(() => tempDates = picked);
+                          }
+                        },
+                        icon: const Icon(Icons.date_range),
+                        label: Text(
+                          tempDates == null
+                              ? 'Select date range'
+                              : '${_formatDate(tempDates!.start)} – ${_formatDate(tempDates!.end)}',
+                        ),
+                      ),
+                      if (tempDates != null)
+                        TextButton(
+                          onPressed: () => setModalState(() => tempDates = null),
+                          child: const Text('Clear date range'),
+                        ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.primary,
+                                foregroundColor: Colors.white,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  _appliedStatus = tempStatus;
+                                  _appliedPriority = tempPriority;
+                                  _appliedLocation = tempLocation;
+                                  _appliedDates = tempDates;
+                                });
+                                Navigator.pop(context, true);
+                              },
+                              child: const Text('Apply Filters'),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          OutlinedButton(
+                            onPressed: () {
+                              _clearAll();
+                              Navigator.pop(context, true);
+                            },
+                            child: const Text('Reset All'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+    if (result == true && mounted) {
+      setState(() {});
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final filtered = _filteredIssues;
-    final resolved = _issues.where((issue) {
+    final totalCount = _issues.length;
+    final resolvedCount = _issues.where((issue) {
       return ['resolved', 'closed'].contains(issue['status']!.toLowerCase());
     }).length;
-    final statsAvailable = !_loading && _error == null;
+    final activeCount = totalCount - resolvedCount;
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Waste'),
-        backgroundColor: const Color.fromARGB(255, 210, 198, 198),
-        foregroundColor: AppColors.text,
+        title: const Text('Waste Problems'),
         actions: [
           IconButton(
-            tooltip: 'Refresh reports',
-            onPressed: _loading ? null : _loadIssues,
-            icon: const Icon(Icons.refresh),
+            tooltip: 'Track Waste Locations on Map',
+            onPressed: () => _openScreen(
+              const DomainLocationTrackerScreen(category: 'waste'),
+            ),
+            icon: const Icon(Icons.map_outlined),
           ),
           IconButton(
-            tooltip: 'Notifications',
-            onPressed: () => _openScreen(const NotificationsScreen()),
-            icon: const Icon(Icons.notifications_outlined),
+            tooltip: 'Submit Waste Report',
+            onPressed: () => QuickIssueReportSheet.show(
+              context,
+              initialCategory: 'waste',
+              onSubmitted: _loadIssues,
+            ),
+            icon: const Icon(Icons.add_circle_outline_rounded),
+          ),
+          IconButton(
+            tooltip: 'Refresh',
+            onPressed: _loading ? null : _loadIssues,
+            icon: const Icon(Icons.refresh_rounded),
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+      floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
+        onPressed: () => QuickIssueReportSheet.show(
+          context,
+          initialCategory: 'waste',
+          onSubmitted: _loadIssues,
+        ),
+        icon: const Icon(Icons.add_rounded),
+        label: const Text(
+          'New Waste Report',
+          style: TextStyle(fontWeight: FontWeight.w700),
+        ),
+      ),
+      body: SafeArea(
         child: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 900),
+            constraints: const BoxConstraints(maxWidth: 800),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'ENVIRONMENTAL SERVICES',
-                  style: TextStyle(
-                    color: AppColors.primary,
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1.2,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                const Text(
-                  'Waste management',
-                  style: TextStyle(
-                    color: AppColors.text,
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    OutlinedButton.icon(
-                      onPressed: () =>
-                          _openScreen(const CollectionInformationScreen()),
-                      icon: const Icon(Icons.calendar_month_outlined),
-                      label: const Text('Collection schedules'),
-                    ),
-                    OutlinedButton.icon(
-                      onPressed: () =>
-                          _openScreen(const WasteSeparationGuideScreen()),
-                      icon: const Icon(Icons.recycling),
-                      label: const Text('Waste separation guide'),
-                    ),
-                    OutlinedButton.icon(
-                      onPressed: () =>
-                          _openScreen(const RecyclingInformationScreen()),
-                      icon: const Icon(Icons.eco_outlined),
-                      label: const Text('Recycling information'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Manage collection schedules, missed pickups, and recycling.',
-                  style: TextStyle(color: AppColors.muted, height: 1.5),
-                ),
-                const SizedBox(height: 20),
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final columns = constraints.maxWidth >= 600 ? 3 : 2;
-                    final width =
-                        (constraints.maxWidth - (columns - 1) * 12) / columns;
-
-                    return Wrap(
-                      spacing: 12,
-                      runSpacing: 12,
-                      children: [
-                        _statCard(
-                          width,
-                          'Total reports',
-                          statsAvailable ? '${_issues.length}' : '—',
-                          Icons.assignment_outlined,
-                        ),
-                        _statCard(
-                          width,
-                          'Open reports',
-                          statsAvailable ? '${_issues.length - resolved}' : '—',
-                          Icons.pending_actions,
-                        ),
-                        _statCard(
-                          width,
-                          'Resolved / closed',
-                          statsAvailable ? '$resolved' : '—',
-                          Icons.task_alt,
-                        ),
-                      ],
-                    );
-                  },
-                ),
-                const SizedBox(height: 24),
                 Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(18),
-                  decoration: BoxDecoration(
-                    color: AppColors.card,
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: AppColors.border),
-                  ),
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+                  color: AppColors.background,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        'Waste management overview',
+                        'City Waste Reports',
                         style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
                           color: AppColors.text,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                      const SizedBox(height: 16),
-                      if (_loading)
-                        const Padding(
-                          padding: EdgeInsets.all(30),
-                          child: Center(child: CircularProgressIndicator()),
-                        )
-                      else if (_error != null) ...[
-                        Text(
-                          _error!,
-                          style: const TextStyle(color: AppColors.error),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Monitor waste collection, garbage overflow, and disposal reports.',
+                        style: TextStyle(color: AppColors.muted, fontSize: 13),
+                      ),
+                      const SizedBox(height: 12),
+                      _buildStatRow(
+                        total: totalCount,
+                        active: activeCount,
+                        resolved: resolvedCount,
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: _searchController,
+                        onChanged: (val) => setState(() => _query = val),
+                        decoration: InputDecoration(
+                          hintText: 'Search waste reports...',
+                          prefixIcon: const Icon(Icons.search),
+                          suffixIcon: _query.isNotEmpty
+                              ? IconButton(
+                                  tooltip: 'Clear search',
+                                  onPressed: () {
+                                    _searchController.clear();
+                                    setState(() => _query = '');
+                                  },
+                                  icon: const Icon(Icons.close),
+                                )
+                              : null,
                         ),
-                        const SizedBox(height: 12),
-                        ElevatedButton.icon(
-                          onPressed: _loadIssues,
-                          icon: const Icon(Icons.refresh),
-                          label: const Text('Retry'),
-                        ),
-                      ] else ...[
-                        TextField(
-                          controller: _searchController,
-                          onChanged: (value) => setState(() => _query = value),
-                          decoration: InputDecoration(
-                            hintText: 'Search issues...',
-                            prefixIcon: const Icon(Icons.search),
-                            suffixIcon: _query.isEmpty
-                                ? null
-                                : IconButton(
-                                    tooltip: 'Clear search',
-                                    onPressed: () {
-                                      _searchController.clear();
-                                      setState(() => _query = '');
-                                    },
-                                    icon: const Icon(Icons.close),
-                                  ),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        OutlinedButton.icon(
-                          onPressed: () =>
-                              setState(() => _showFilters = !_showFilters),
-                          icon: const Icon(Icons.filter_list),
-                          label: Text('Filters ($_activeFilterCount)'),
-                        ),
-                        if (_showFilters) ...[
-                          const SizedBox(height: 16),
-                          _dropdown(
-                            'Status',
-                            _status,
-                            _options('status'),
-                            (value) => setState(() => _status = value),
-                          ),
-
-                          _dropdown(
-                            'Priority',
-                            _priority,
-                            _options('priority'),
-                            (value) => setState(() => _priority = value),
-                          ),
-                          _dropdown(
-                            'Location',
-                            _location,
-                            _options('location'),
-                            (value) => setState(() => _location = value),
+                      ),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              foregroundColor: Colors.white,
+                            ),
+                            onPressed: () => QuickIssueReportSheet.show(
+                              context,
+                              initialCategory: 'waste',
+                              onSubmitted: _loadIssues,
+                            ),
+                            icon: const Icon(Icons.add_task_rounded, size: 18),
+                            label: const Text('Report Waste Issue'),
                           ),
                           OutlinedButton.icon(
-                            onPressed: _pickDates,
-                            icon: const Icon(Icons.date_range),
+                            onPressed: _openWasteFilterSheet,
+                            icon: const Icon(Icons.tune),
                             label: Text(
-                              _dates == null
-                                  ? 'Select date range'
-                                  : '${_formatDate(_dates!.start)} – '
-                                        '${_formatDate(_dates!.end)}',
+                              _activeFilterCount > 0
+                                  ? 'Filters ($_activeFilterCount)'
+                                  : 'Filters',
                             ),
                           ),
-                          if (_dates != null)
-                            TextButton(
-                              onPressed: () => setState(() => _dates = null),
-                              child: const Text('Remove date selection'),
+                          OutlinedButton.icon(
+                            onPressed: () => _openScreen(
+                              const DomainLocationTrackerScreen(category: 'waste'),
                             ),
-                          const SizedBox(height: 12),
-                          Wrap(
-                            spacing: 12,
-                            children: [
-                              FilledButton(
-                                onPressed: _applyFilters,
-                                child: const Text('Apply filters'),
-                              ),
-                              TextButton(
-                                onPressed: _clearAll,
-                                child: const Text('Clear all'),
-                              ),
-                            ],
+                            icon: const Icon(Icons.map_outlined),
+                            label: const Text('Live Map'),
                           ),
+                          OutlinedButton.icon(
+                            onPressed: () => _openScreen(
+                              const CollectionInformationScreen(),
+                            ),
+                            icon: const Icon(Icons.calendar_month_outlined),
+                            label: const Text('Schedules'),
+                          ),
+                          OutlinedButton.icon(
+                            onPressed: () => _openScreen(
+                              const RecyclingInformationScreen(),
+                            ),
+                            icon: const Icon(Icons.recycling_rounded),
+                            label: const Text('Recycling'),
+                          ),
+                          if (_activeFilterCount > 0)
+                            IconButton(
+                              tooltip: 'Clear filters',
+                              onPressed: _clearAll,
+                              icon: const Icon(Icons.filter_alt_off_outlined),
+                            ),
+                          if (!_loading)
+                            Text(
+                              '${filtered.length} reports',
+                              style: const TextStyle(
+                                color: AppColors.muted,
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                         ],
-                        const SizedBox(height: 16),
-                        Text(
-                          '${filtered.length} results '
-                          'from ${_issues.length} reports',
-                          style: const TextStyle(color: AppColors.muted),
-                        ),
-                        const SizedBox(height: 8),
-                        if (filtered.isEmpty)
-                          Padding(
-                            padding: const EdgeInsets.all(24),
-                            child: Center(
-                              child: Column(
-                                children: [
-                                  const Icon(
-                                    Icons.search_off,
-                                    size: 36,
-                                    color: AppColors.muted,
-                                  ),
-                                  const SizedBox(height: 10),
-                                  Text(
-                                    _issues.isEmpty
-                                        ? 'No waste reports yet.'
-                                        : 'No matching waste issues.',
-                                  ),
-                                  if (_issues.isNotEmpty)
-                                    TextButton(
-                                      onPressed: _clearAll,
-                                      child: const Text('Reset all'),
-                                    ),
-                                ],
-                              ),
-                            ),
-                          )
-                        else
-                          ...filtered.map(_issueRow),
-                      ],
+                      ),
                     ],
                   ),
+                ),
+                Expanded(
+                  child: _loading
+                      ? const Center(child: CircularProgressIndicator())
+                      : _error != null && _issues.isEmpty
+                          ? _statusView(
+                              icon: Icons.wifi_off_outlined,
+                              title: 'Unable to load waste reports',
+                              message: _error!,
+                              onRetry: _loadIssues,
+                            )
+                          : filtered.isEmpty
+                              ? _statusView(
+                                  icon: _issues.isEmpty
+                                      ? Icons.delete_outline_rounded
+                                      : Icons.search_off,
+                                  title: _issues.isEmpty
+                                      ? 'No waste reports yet'
+                                      : 'No matching waste reports',
+                                  message: _issues.isEmpty
+                                      ? 'Report missed pickups, overflowing bins, or illegal dumping in your area.'
+                                      : 'Try adjusting your search terms or filters.',
+                                  buttonLabel: _issues.isEmpty
+                                      ? 'Submit Waste Report'
+                                      : 'Clear filters',
+                                  onRetry: _issues.isEmpty
+                                      ? () => QuickIssueReportSheet.show(
+                                            context,
+                                            initialCategory: 'waste',
+                                            onSubmitted: _loadIssues,
+                                          )
+                                      : _clearAll,
+                                )
+                              : RefreshIndicator(
+                                  onRefresh: _loadIssues,
+                                  child: ListView.builder(
+                                    physics: const AlwaysScrollableScrollPhysics(),
+                                    padding: const EdgeInsets.fromLTRB(16, 6, 16, 80),
+                                    itemCount: filtered.length,
+                                    itemBuilder: (context, index) {
+                                      return _issueRow(filtered[index]);
+                                    },
+                                  ),
+                                ),
                 ),
               ],
             ),
@@ -515,51 +586,78 @@ class _WasteProblemsScreenState extends State<WasteProblemsScreen> {
     );
   }
 
-  Widget _dropdown(
-    String label,
-    String selected,
-    List<String> options,
-    ValueChanged<String> onChanged,
-  ) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: DropdownButtonFormField<String>(
-        key: ValueKey('$label-$selected'),
-        initialValue: selected,
-        isExpanded: true,
-        decoration: InputDecoration(labelText: label),
-        items: options.map((option) {
-          return DropdownMenuItem<String>(value: option, child: Text(option));
-        }).toList(),
-        onChanged: (value) {
-          if (value != null) onChanged(value);
-        },
-      ),
+  Widget _buildStatRow({
+    required int total,
+    required int active,
+    required int resolved,
+  }) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const spacing = 8.0;
+        final cardWidth = (constraints.maxWidth - spacing * 2) / 3;
+        return Row(
+          children: [
+            _statItem('Total Reports', total, AppColors.cyan, Icons.assignment_outlined, cardWidth),
+            const SizedBox(width: spacing),
+            _statItem('Active / Open', active, AppColors.warning, Icons.pending_actions_rounded, cardWidth),
+            const SizedBox(width: spacing),
+            _statItem('Resolved', resolved, AppColors.success, Icons.check_circle_outline_rounded, cardWidth),
+          ],
+        );
+      },
     );
   }
 
-  Widget _statCard(double width, String label, String value, IconData icon) {
+  Widget _statItem(String label, int count, Color color, IconData icon, double width) {
     return Container(
       width: width,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       decoration: BoxDecoration(
-        color: AppColors.lightBlue,
-        borderRadius: BorderRadius.circular(16),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppColors.border),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.navy.withValues(alpha: 0.04),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: AppColors.primary),
-          const SizedBox(height: 12),
-          Text(label, style: const TextStyle(color: AppColors.muted)),
-          const SizedBox(height: 6),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(5),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, color: color, size: 16),
+              ),
+              Text(
+                count.toString(),
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.text,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 5),
           Text(
-            value,
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              color: AppColors.text,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
+              fontSize: 11,
+              color: AppColors.muted,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -567,23 +665,197 @@ class _WasteProblemsScreenState extends State<WasteProblemsScreen> {
     );
   }
 
-  Widget _issueRow(Map<String, String> issue) {
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(vertical: 8),
-      title: Text(
-        issue['title'] ?? 'Waste issue',
-        style: const TextStyle(
-          color: AppColors.text,
-          fontWeight: FontWeight.w600,
+  Widget _statusView({
+    required IconData icon,
+    required String title,
+    required String message,
+    required VoidCallback onRetry,
+    String buttonLabel = 'Try again',
+  }) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 54, color: AppColors.muted),
+            const SizedBox(height: 14),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 8),
+            Text(message, textAlign: TextAlign.center),
+            const SizedBox(height: 18),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: onRetry,
+              child: Text(buttonLabel),
+            ),
+          ],
         ),
       ),
-      subtitle: Text(
-        '${issue['location']} • ${issue['date']}\n'
-        '${issue['status']} • ${issue['priority']} priority',
+    );
+  }
+
+  Color _priorityColor(String priority) {
+    switch (priority.toLowerCase()) {
+      case 'critical':
+      case 'high':
+        return AppColors.error;
+      case 'medium':
+        return AppColors.warning;
+      default:
+        return AppColors.success;
+    }
+  }
+
+  Widget _badgeChip(String text, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(100),
       ),
-      isThreeLine: true,
-      trailing: const Icon(Icons.chevron_right),
-      onTap: () => _openScreen(WasteProblemDetailsScreen(issue: issue)),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: color,
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+
+  Widget _issueRow(Map<String, String> issue) {
+    final isStaff = context.watch<AuthProvider>().user?.isStaff ?? false;
+    final idInt = int.tryParse(issue['id'] ?? '') ?? 0;
+    final priority = issue['priority'] ?? 'Medium';
+    final status = issue['status'] ?? 'Reported';
+    final desc = (issue['description'] ?? '').trim();
+    final loc = issue['location'] ?? 'Location not provided';
+    final date = issue['date'] ?? '';
+
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 6),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () async {
+          await Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => WasteProblemDetailsScreen(issue: issue),
+            ),
+          );
+          if (mounted) _loadIssues();
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      issue['title'] ?? 'Waste issue',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ),
+                  const Icon(Icons.chevron_right, color: AppColors.muted),
+                ],
+              ),
+              if (desc.isNotEmpty) ...[
+                const SizedBox(height: 7),
+                Text(
+                  desc,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _badgeChip(priority, _priorityColor(priority)),
+                  _badgeChip(status, AppColors.primary),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  const Icon(
+                    Icons.location_on_outlined,
+                    size: 17,
+                    color: AppColors.muted,
+                  ),
+                  const SizedBox(width: 5),
+                  Expanded(
+                    child: Text(
+                      loc,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 7),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Report #${issue['id'] ?? ''} • Reported $date',
+                      style: const TextStyle(
+                        color: AppColors.muted,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                  if (isStaff && idInt > 0)
+                    FilledButton.tonalIcon(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.lightBlue,
+                        foregroundColor: AppColors.primaryDark,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        minimumSize: const Size(0, 32),
+                      ),
+                      onPressed: () async {
+                        await Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => TrafficStatusManagementScreen(
+                              issueId: idInt,
+                              categoryLabel: 'Waste',
+                            ),
+                          ),
+                        );
+                        if (mounted) _loadIssues();
+                      },
+                      icon: const Icon(Icons.manage_accounts_rounded, size: 16),
+                      label: const Text(
+                        'Manage Case',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

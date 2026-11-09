@@ -33,6 +33,12 @@ class Validators {
     return null;
   }
 
+  static String? address(String? value) {
+    if (value == null || value.trim().isEmpty) return 'Address is required';
+    if (value.trim().length < 3) return 'Enter a valid residential address';
+    return null;
+  }
+
   /// Used on the login form: only checks that something was typed.
   static String? passwordRequired(String? value) {
     if (value == null || value.isEmpty) return 'Password is required';

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../reporting/widgets/issue_location_tracker_card.dart';
 import '../models/traffic_issue_model.dart';
 import '../services/traffic_service.dart';
 import '../widgets/traffic_status_timeline.dart';
@@ -87,30 +88,32 @@ class _TrafficProblemDetailsScreenState extends State<TrafficProblemDetailsScree
                         style: const TextStyle(color: AppColors.muted)),
                   ]),
                 )),
-                // Officer entry point. The backend requires a valid signed JWT
-                // and an active officer/admin database role for every action.
-                Card(child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Row(children: [
-                    const Icon(Icons.admin_panel_settings_outlined, color: AppColors.primary),
-                    const SizedBox(width: 10),
-                    const Expanded(child: Text('Authorized traffic officers can assign and update this report.')),
-                    TextButton.icon(
-                      key: const Key('traffic-open-officer-tools'),
-                      onPressed: () async {
-                        await Navigator.of(context).push(MaterialPageRoute<void>(
-                          builder: (_) => TrafficStatusManagementScreen(
-                            issueId: issue.id, service: _service),
-                        ));
-                        if (mounted) _retry();
-                      },
-                      icon: const Icon(Icons.manage_accounts_outlined),
-                      label: const Text('Manage'),
-                    ),
-                  ]),
-                )),
+                // Officer / Manager / Super Admin entry point.
+                StaffCaseManagementBanner(
+                  issueId: issue.id,
+                  categoryLabel: 'Traffic',
+                  currentStatus: issue.status,
+                  currentPriority: issue.priority,
+                  service: _service,
+                  onUpdated: () {
+                    if (mounted) _retry();
+                  },
+                ),
                 _SectionCard(title: 'Problem Description', icon: Icons.description_outlined,
                     child: Text(issue.description)),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: IssueLocationTrackerCard(
+                    title: issue.title,
+                    category: 'traffic',
+                    address: issue.location?.address,
+                    city: issue.location?.city,
+                    latitude: issue.location?.latitude,
+                    longitude: issue.location?.longitude,
+                    priority: issue.priority,
+                    status: issue.status,
+                  ),
+                ),
                 _SectionCard(title: 'Location Details', icon: Icons.location_on_outlined,
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Text(issue.location?.address ?? 'Address not provided'),

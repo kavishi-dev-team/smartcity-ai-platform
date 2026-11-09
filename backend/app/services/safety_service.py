@@ -64,8 +64,8 @@ def parse_statuses(value: Optional[str]) -> Optional[list[str]]:
 
 
 # ------------------------------ summary + counts ------------------------------
-def get_summary(db: Session) -> SafetySummaryOut:
-    resolved = repo.resolved_issue_times(db, "safety")
+def get_summary(db: Session, reported_by: Optional[int] = None) -> SafetySummaryOut:
+    resolved = repo.resolved_issue_times(db, "safety", reported_by=reported_by)
     within = sum(
         1 for created, updated in resolved
         if _naive(updated) - _naive(created) <= timedelta(hours=SLA_HOURS)
@@ -73,7 +73,7 @@ def get_summary(db: Session) -> SafetySummaryOut:
     percent = round(within * 100 / len(resolved)) if resolved else None
     return SafetySummaryOut(
         active_alerts=repo.count_active_alerts(db),
-        open_reports=repo.count_open_issues(db, "safety"),
+        open_reports=repo.count_open_issues(db, "safety", reported_by=reported_by),
         resolved_total=len(resolved),
         resolved_in_sla_percent=percent,
         sla_hours=SLA_HOURS,
@@ -81,8 +81,8 @@ def get_summary(db: Session) -> SafetySummaryOut:
     )
 
 
-def get_counts(db: Session, category: str) -> IssueCountsOut:
-    by_status = repo.count_by_status(db, category)
+def get_counts(db: Session, category: str, reported_by: Optional[int] = None) -> IssueCountsOut:
+    by_status = repo.count_by_status(db, category, reported_by=reported_by)
     values = {s: by_status.get(s, 0) for s in VALID_STATUSES}
     return IssueCountsOut(total=sum(by_status.values()), **values)
 
@@ -108,6 +108,7 @@ def list_issues(
     db: Session,
     *,
     category: str = "safety",
+    reported_by: Optional[int] = None,
     search: Optional[str] = None,
     status: Optional[str] = None,
     priority: Optional[str] = None,
@@ -130,7 +131,7 @@ def list_issues(
     end = datetime.combine(date_to + timedelta(days=1), time.min) if date_to else None
 
     issues, total = repo.list_issues(
-        db, category=category, search=search or None, statuses=statuses,
+        db, category=category, reported_by=reported_by, search=search or None, statuses=statuses,
         priority=priority, location=location.strip() if location else None,
         start=start, end=end, reference_id=reference_id,
         limit=page_size, offset=(page - 1) * page_size,
