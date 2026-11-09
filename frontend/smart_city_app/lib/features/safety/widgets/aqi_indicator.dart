@@ -110,12 +110,14 @@ class PollutantList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final rows = <MapEntry<String, double?>>[
-      MapEntry('PM2.5', reading.pm25),
-      MapEntry('PM10', reading.pm10),
-      MapEntry('NO\u2082', reading.nitrogenDioxide),
-      MapEntry('CO', reading.carbonMonoxide),
-      MapEntry('O\u2083', reading.ozone),
+    final rows = <({String label, double? value, String unit})>[
+      (label: 'PM2.5 (Fine Particles)', value: reading.pm25, unit: '\u00B5g/m\u00B3'),
+      (label: 'PM10 (Coarse Dust)', value: reading.pm10, unit: '\u00B5g/m\u00B3'),
+      (label: 'NO\u2082 (Nitrogen Dioxide)', value: reading.nitrogenDioxide, unit: '\u00B5g/m\u00B3'),
+      (label: 'SO\u2082 (Sulphur Dioxide)', value: reading.sulphurDioxide, unit: '\u00B5g/m\u00B3'),
+      (label: 'O\u2083 (Ground Ozone)', value: reading.ozone, unit: '\u00B5g/m\u00B3'),
+      (label: 'CO (Carbon Monoxide)', value: reading.carbonMonoxide, unit: '\u00B5g/m\u00B3'),
+      (label: 'UV Index', value: reading.uvIndex, unit: 'UV'),
     ].where((e) => e.value != null).toList();
 
     return Column(
@@ -126,9 +128,9 @@ class PollutantList extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(e.key, style: const TextStyle(color: AppColors.muted)),
+                Text(e.label, style: const TextStyle(color: AppColors.muted)),
                 Text(
-                  '${e.value!.toStringAsFixed(1)} \u00B5g/m\u00B3',
+                  '${e.value!.toStringAsFixed(1)} ${e.unit}',
                   style: const TextStyle(
                     fontWeight: FontWeight.w600,
                     color: AppColors.text,
