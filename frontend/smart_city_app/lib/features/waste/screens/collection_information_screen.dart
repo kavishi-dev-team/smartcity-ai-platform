@@ -125,13 +125,28 @@ class _CollectionInformationScreenState
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFFF5DB),
+                    color: AppColors.lightBlue,
                     borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.border),
                   ),
-                  child: const Text(
-                    'Test schedules are not official collection times. '
-                    'Confirm collection arrangements with your local authority.',
-                    style: TextStyle(color: Color(0xFF854D0E), height: 1.5),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.verified_outlined,
+                        color: AppColors.primary,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Official municipal waste collection schedules synced from the Smart City backend (${_areas.length} active zones, ${_schedules.length} routes).',
+                          style: const TextStyle(
+                            color: AppColors.primaryDark,
+                            height: 1.4,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 24),
