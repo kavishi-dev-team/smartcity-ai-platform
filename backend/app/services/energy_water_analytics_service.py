@@ -12,11 +12,15 @@ def _get_statistics(
     category: str,
     start_date: date | None = None,
     end_date: date | None = None,
+    reported_by: int | None = None,
 ):
     query = db.query(Issue).filter(
         Issue.category == category,
         Issue.is_active.is_(True),
     )
+
+    if reported_by is not None:
+        query = query.filter(Issue.reported_by == reported_by)
 
     if start_date:
         query = query.filter(
@@ -138,6 +142,7 @@ def get_energy_water_statistics(
     db: Session,
     start_date: date | None = None,
     end_date: date | None = None,
+    reported_by: int | None = None,
 ):
     return {
         "energy": _get_statistics(
@@ -145,11 +150,13 @@ def get_energy_water_statistics(
             category="energy",
             start_date=start_date,
             end_date=end_date,
+            reported_by=reported_by,
         ),
         "water": _get_statistics(
             db=db,
             category="water",
             start_date=start_date,
             end_date=end_date,
+            reported_by=reported_by,
         ),
     }
