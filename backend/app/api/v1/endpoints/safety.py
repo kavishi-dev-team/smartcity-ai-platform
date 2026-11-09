@@ -72,14 +72,18 @@ def _handle(error: Exception) -> HTTPException:
 # Public (citizen) endpoints
 # ---------------------------------------------------------------------------
 @router.get("/summary", response_model=SafetySummaryOut)
-def get_safety_summary(db: Session = Depends(get_db)):
+def get_safety_summary(
+    reported_by: Optional[int] = Query(default=None),
+    db: Session = Depends(get_db),
+):
     """Numbers for the three stat cards at the top of the Safety screen."""
-    return service.get_summary(db)
+    return service.get_summary(db, reported_by=reported_by)
 
 
 @router.get("/issues", response_model=SafetyIssueListOut)
 def list_safety_issues(
     category: Literal["safety", "complaint"] = "safety",
+    reported_by: Optional[int] = Query(default=None),
     search: Optional[str] = Query(default=None, max_length=100),
     status: Optional[str] = Query(
         default=None,
@@ -96,7 +100,7 @@ def list_safety_issues(
 ):
     try:
         return service.list_issues(
-            db, category=category, search=search, status=status, priority=priority,
+            db, category=category, reported_by=reported_by, search=search, status=status, priority=priority,
             location=location, date_from=date_from, date_to=date_to,
             page=page, page_size=page_size,
         )
@@ -108,10 +112,11 @@ def list_safety_issues(
 @router.get("/issues/counts", response_model=IssueCountsOut)
 def get_issue_counts(
     category: Literal["safety", "complaint"] = "complaint",
+    reported_by: Optional[int] = Query(default=None),
     db: Session = Depends(get_db),
 ):
     """Report counts per status, for the complaint history tabs."""
-    return service.get_counts(db, category)
+    return service.get_counts(db, category, reported_by=reported_by)
 
 
 @router.get("/issues/{issue_id}", response_model=SafetyIssueDetailOut)
