@@ -37,8 +37,9 @@ class TrafficFilters {
 
 class TrafficProvider extends ChangeNotifier {
   final TrafficService service;
+  int? reportedBy;
 
-  TrafficProvider(this.service);
+  TrafficProvider(this.service, {this.reportedBy});
 
   static const int pageSize = 20;
   TrafficFilters filters = const TrafficFilters();
@@ -72,6 +73,7 @@ class TrafficProvider extends ChangeNotifier {
         dateTo: filters.dateTo,
         limit: pageSize,
         offset: 0,
+        reportedBy: reportedBy,
       );
       if (_disposed || requestId != _requestId) return;
       issues = page.items;
@@ -105,6 +107,7 @@ class TrafficProvider extends ChangeNotifier {
         dateTo: filters.dateTo,
         limit: pageSize,
         offset: issues.length,
+        reportedBy: reportedBy,
       );
       if (_disposed || requestId != _requestId) return;
       issues = [...issues, ...page.items];
