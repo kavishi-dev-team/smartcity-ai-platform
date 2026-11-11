@@ -3,6 +3,8 @@ services:
     image: mysql:8.0
     container_name: smartcity-mysql
     restart: always
+    env_file:
+      - .env.prod
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-smartcity_db}

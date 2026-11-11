@@ -185,8 +185,8 @@ resource "aws_instance" "server" {
               chown -R ubuntu:ubuntu /opt/smartcity
 
               # 5. Build and launch Docker Compose stack
-              docker compose -f docker-compose.prod.yml down || true
-              docker compose -f docker-compose.prod.yml up -d --build
+              docker compose --env-file .env.prod -f docker-compose.prod.yml down || true
+              docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build
               EOF
 
   tags = {
