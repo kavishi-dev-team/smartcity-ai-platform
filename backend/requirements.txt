@@ -3,7 +3,7 @@ uvicorn[standard]==0.34.2
 SQLAlchemy==2.0.40
 PyMySQL==1.1.1
 pydantic-settings==2.8.1
-python-dotenv==1.1.0
+python-dotenv==1.2.4
 alembic==1.15.2
 python-jose[cryptography]==3.4.0
 passlib[bcrypt]==1.7.4
