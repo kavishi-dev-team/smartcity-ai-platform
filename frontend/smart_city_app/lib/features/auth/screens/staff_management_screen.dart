@@ -224,6 +224,7 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
                     ),
                     const SizedBox(height: 16),
                     DropdownButtonFormField<String>(
+                      isExpanded: true,
                       initialValue: selectedRole,
                       decoration: const InputDecoration(
                         labelText: 'Access Role & Authority Level',
@@ -232,15 +233,24 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
                       items: const [
                         DropdownMenuItem(
                           value: 'DEPARTMENT_OFFICER',
-                          child: Text('Department Officer (Field & Case Ops)'),
+                          child: Text(
+                            'Department Officer (Field & Case Ops)',
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                         DropdownMenuItem(
                           value: 'CITY_MANAGER',
-                          child: Text('City Manager (Cross-Dept Executive)'),
+                          child: Text(
+                            'City Manager (Cross-Dept Executive)',
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                         DropdownMenuItem(
                           value: 'SUPER_ADMIN',
-                          child: Text('Super Admin (Full System Access)'),
+                          child: Text(
+                            'Super Admin (Full System Access)',
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                       ],
                       onChanged: (val) {
@@ -252,6 +262,7 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
                     const SizedBox(height: 12),
                     if (_departments.isNotEmpty)
                       DropdownButtonFormField<int?>(
+                        isExpanded: true,
                         initialValue: selectedDepartmentId,
                         decoration: const InputDecoration(
                           labelText: 'Assigned Municipal Department',
@@ -260,12 +271,18 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
                         items: [
                           const DropdownMenuItem<int?>(
                             value: null,
-                            child: Text('All / Executive Cross-Department'),
+                            child: Text(
+                              'All / Executive Cross-Department',
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
                           ..._departments.map(
                             (d) => DropdownMenuItem<int?>(
                               value: d['id'] as int,
-                              child: Text(d['name']?.toString() ?? 'Department'),
+                              child: Text(
+                                d['name']?.toString() ?? 'Department',
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
                           ),
                         ],
@@ -566,6 +583,7 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
                   ),
                   const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
+                    isExpanded: true,
                     initialValue: selectedRole,
                     decoration: const InputDecoration(
                       labelText: 'Assigned System Role',
@@ -574,19 +592,31 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
                     items: const [
                       DropdownMenuItem(
                         value: 'SUPER_ADMIN',
-                        child: Text('Super Admin (Full System Control)'),
+                        child: Text(
+                          'Super Admin (Full System Control)',
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                       DropdownMenuItem(
                         value: 'CITY_MANAGER',
-                        child: Text('City Manager (Executive Operations)'),
+                        child: Text(
+                          'City Manager (Executive Operations)',
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                       DropdownMenuItem(
                         value: 'DEPARTMENT_OFFICER',
-                        child: Text('Department Officer (Department Ops)'),
+                        child: Text(
+                          'Department Officer (Department Ops)',
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                       DropdownMenuItem(
                         value: 'CITIZEN',
-                        child: Text('Citizen (Standard Portal)'),
+                        child: Text(
+                          'Citizen (Standard Portal)',
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                     ],
                     onChanged: (val) {
@@ -598,6 +628,7 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
                   const SizedBox(height: 12),
                   if (_departments.isNotEmpty && selectedRole != 'CITIZEN')
                     DropdownButtonFormField<int>(
+                      isExpanded: true,
                       initialValue: _departments.any(
                         (d) => d['id'] == selectedDeptId,
                       )
@@ -610,12 +641,18 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
                       items: [
                         const DropdownMenuItem<int>(
                           value: 0,
-                          child: Text('Unassigned / All Departments'),
+                          child: Text(
+                            'Unassigned / All Departments',
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                         ..._departments.map(
                           (d) => DropdownMenuItem<int>(
                             value: d['id'] as int,
-                            child: Text(d['name']?.toString() ?? 'Department'),
+                            child: Text(
+                              d['name']?.toString() ?? 'Department',
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
                         ),
                       ],
@@ -778,71 +815,123 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.border),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isSmall = constraints.maxWidth < 480;
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(
-                Icons.verified_user_rounded,
+              if (isSmall) ...[
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.verified_user_rounded,
+                      color: AppColors.primary,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text(
+                        'Role-Based Access Control (RBAC)',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.text,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isSuperAdmin
+                        ? AppColors.navy.withValues(alpha: 0.12)
+                        : AppColors.primary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    isSuperAdmin ? 'FULL ADMIN WRITE ACCESS' : 'READ-ONLY DIRECTORY',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      color: isSuperAdmin ? AppColors.navy : AppColors.primary,
+                    ),
+                  ),
+                ),
+              ] else
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.verified_user_rounded,
+                      color: AppColors.primary,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text(
+                        'Production Role-Based Access Control (RBAC) Matrix',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.text,
+                        ),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isSuperAdmin
+                            ? AppColors.navy.withValues(alpha: 0.12)
+                            : AppColors.primary.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        isSuperAdmin ? 'FULL ADMIN WRITE ACCESS' : 'READ-ONLY DIRECTORY',
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w800,
+                          color: isSuperAdmin ? AppColors.navy : AppColors.primary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              const SizedBox(height: 12),
+              _matrixRow(
+                role: 'Super Admin',
+                color: AppColors.navy,
+                permissions:
+                    'Full System Access • Register & manage Super Admins, City Managers & Department Officers • Assign departments, reset credentials, suspend accounts • Full AI triage, analytics & all municipal domains',
+                isSmall: isSmall,
+              ),
+              const Divider(height: 16),
+              _matrixRow(
+                role: 'City Manager',
                 color: AppColors.primary,
-                size: 20,
+                permissions:
+                    'Executive Operations Access • Cross-department SLA & analytics oversight • Assign issues across all municipal departments • Manage public safety alerts, waste schedules & AI priority overrides • View staff directory',
+                isSmall: isSmall,
               ),
-              const SizedBox(width: 8),
-              const Expanded(
-                child: Text(
-                  'Production Role-Based Access Control (RBAC) Matrix',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.text,
-                  ),
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: isSuperAdmin
-                      ? AppColors.navy.withValues(alpha: 0.12)
-                      : AppColors.primary.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  isSuperAdmin ? 'FULL ADMIN WRITE ACCESS' : 'READ-ONLY DIRECTORY',
-                  style: TextStyle(
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w800,
-                    color: isSuperAdmin ? AppColors.navy : AppColors.primary,
-                  ),
-                ),
+              const Divider(height: 16),
+              _matrixRow(
+                role: 'Department Officer',
+                color: AppColors.cyan,
+                permissions:
+                    'Department Field & Case Access • Inspect & resolve assigned department issues (Traffic, Waste, Energy, Water, Safety, Air Quality) • Post citizen timeline updates & internal officer notes • Update field status (`Assigned` → `In Progress` → `Resolved`)',
+                isSmall: isSmall,
               ),
             ],
-          ),
-          const SizedBox(height: 12),
-          _matrixRow(
-            role: 'Super Admin',
-            color: AppColors.navy,
-            permissions:
-                'Full System Access • Register & manage Super Admins, City Managers & Department Officers • Assign departments, reset credentials, suspend accounts • Full AI triage, analytics & all municipal domains',
-          ),
-          const Divider(height: 16),
-          _matrixRow(
-            role: 'City Manager',
-            color: AppColors.primary,
-            permissions:
-                'Executive Operations Access • Cross-department SLA & analytics oversight • Assign issues across all municipal departments • Manage public safety alerts, waste schedules & AI priority overrides • View staff directory',
-          ),
-          const Divider(height: 16),
-          _matrixRow(
-            role: 'Department Officer',
-            color: AppColors.cyan,
-            permissions:
-                'Department Field & Case Access • Inspect & resolve assigned department issues (Traffic, Waste, Energy, Water, Safety, Air Quality) • Post citizen timeline updates & internal officer notes • Update field status (`Assigned` → `In Progress` → `Resolved`)',
-          ),
-        ],
+          );
+        },
       ),
     );
   }
@@ -851,7 +940,40 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
     required String role,
     required Color color,
     required String permissions,
+    bool isSmall = false,
   }) {
+    if (isSmall) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(
+              role,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                color: color,
+              ),
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            permissions,
+            style: const TextStyle(
+              fontSize: 11.5,
+              color: AppColors.muted,
+              height: 1.35,
+            ),
+          ),
+        ],
+      );
+    }
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -914,7 +1036,7 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
                 // Top Hero Banner
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.all(18),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
                       colors: [AppColors.navy, AppColors.primary],
@@ -923,13 +1045,11 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
                     ),
                     borderRadius: BorderRadius.circular(18),
                   ),
-                  child: Wrap(
-                    alignment: WrapAlignment.spaceBetween,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    spacing: 12,
-                    runSpacing: 12,
-                    children: [
-                      Column(
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final isSmall = constraints.maxWidth < 540;
+
+                      final textContent = Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
@@ -938,7 +1058,7 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
                                 : 'Municipal Staff & Department Directory',
                             style: const TextStyle(
                               color: Colors.white,
-                              fontSize: 20,
+                              fontSize: 19,
                               fontWeight: FontWeight.w800,
                             ),
                           ),
@@ -949,32 +1069,57 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
                                 : 'Inspect active Department Officers, City Managers, and municipal department assignments.',
                             style: const TextStyle(
                               color: AppColors.lightBlue,
-                              fontSize: 12.5,
+                              fontSize: 12,
                             ),
                           ),
                         ],
-                      ),
-                      if (isSuperAdmin)
-                        ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white,
-                            foregroundColor: AppColors.navy,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 12,
-                            ),
-                          ),
-                          onPressed: _showRegisterStaffModal,
-                          icon: const Icon(
-                            Icons.person_add_alt_1_rounded,
-                            size: 18,
-                          ),
-                          label: const Text(
-                            'Register Officer / Manager',
-                            style: TextStyle(fontWeight: FontWeight.w800),
-                          ),
-                        ),
-                    ],
+                      );
+
+                      final registerBtn = isSuperAdmin
+                          ? ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.white,
+                                foregroundColor: AppColors.navy,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 11,
+                                ),
+                              ),
+                              onPressed: _showRegisterStaffModal,
+                              icon: const Icon(
+                                Icons.person_add_alt_1_rounded,
+                                size: 18,
+                              ),
+                              label: const Text(
+                                'Register Officer / Manager',
+                                style: TextStyle(fontWeight: FontWeight.w800),
+                              ),
+                            )
+                          : const SizedBox.shrink();
+
+                      if (isSmall) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            textContent,
+                            if (isSuperAdmin) ...[
+                              const SizedBox(height: 14),
+                              registerBtn,
+                            ],
+                          ],
+                        );
+                      }
+
+                      return Row(
+                        children: [
+                          Expanded(child: textContent),
+                          if (isSuperAdmin) ...[
+                            const SizedBox(width: 14),
+                            registerBtn,
+                          ],
+                        ],
+                      );
+                    },
                   ),
                 ),
 
@@ -1157,17 +1302,22 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
           foregroundColor: Colors.white,
           title: Text(
             isSuperAdmin
-                ? 'Staff & Access Control (Super Admin)'
-                : 'Municipal Staff Directory',
+                ? 'Staff & Access'
+                : 'Staff Directory',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
           ),
           actions: [
             if (isSuperAdmin)
               IconButton(
+                visualDensity: VisualDensity.compact,
                 tooltip: 'Register Staff Account',
                 onPressed: _showRegisterStaffModal,
                 icon: const Icon(Icons.person_add_alt_1_rounded),
               ),
             IconButton(
+              visualDensity: VisualDensity.compact,
               tooltip: 'Refresh',
               onPressed: _loadData,
               icon: const Icon(Icons.refresh_rounded),
@@ -1185,12 +1335,16 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
         foregroundColor: Colors.white,
         title: Text(
           isSuperAdmin
-              ? 'Staff & Access Control'
-              : 'Municipal Staff Directory',
+              ? 'Staff & Access'
+              : 'Staff Directory',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
         ),
         actions: [
           if (isSuperAdmin)
             IconButton(
+              visualDensity: VisualDensity.compact,
               tooltip: 'Register Staff Account',
               onPressed: _showRegisterStaffModal,
               icon: const Icon(Icons.person_add_alt_1_rounded),
@@ -1301,176 +1455,213 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
 
   Widget _buildUserCard(UserModel u, {required bool isSuperAdmin}) {
     final rColor = _roleColor(u.role);
+    final isCurrentUser = u.id == context.read<AuthProvider>().user?.id;
+
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
       child: Padding(
         padding: const EdgeInsets.all(14),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            CircleAvatar(
-              radius: 22,
-              backgroundColor: rColor.withValues(alpha: 0.14),
-              child: Icon(_roleIcon(u.role), color: rColor, size: 22),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final isMobile = constraints.maxWidth < 480;
+
+            final mainInfo = Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                CircleAvatar(
+                  radius: 20,
+                  backgroundColor: rColor.withValues(alpha: 0.14),
+                  child: Icon(_roleIcon(u.role), color: rColor, size: 20),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Text(
+                            u.fullName,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.text,
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: rColor.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              u.role.displayName.toUpperCase(),
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                color: rColor,
+                              ),
+                            ),
+                          ),
+                          if (!u.isActive)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppColors.error.withValues(alpha: 0.14),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Text(
+                                'SUSPENDED',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppColors.error,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        u.email,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.muted,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 12,
+                        runSpacing: 4,
+                        children: [
+                          if (u.departmentName != null)
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.apartment_rounded,
+                                  size: 14,
+                                  color: AppColors.primary,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '${u.departmentName}${u.position != null ? " • ${u.position}" : ""}',
+                                  style: const TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.primaryDark,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          if (u.phoneNumber != null && u.phoneNumber!.isNotEmpty)
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.phone_outlined,
+                                  size: 14,
+                                  color: AppColors.muted,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  u.phoneNumber!,
+                                  style: const TextStyle(
+                                    fontSize: 11.5,
+                                    color: AppColors.muted,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          if (u.address != null && u.address!.isNotEmpty)
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.location_on_outlined,
+                                  size: 14,
+                                  color: AppColors.muted,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  u.address!,
+                                  style: const TextStyle(
+                                    fontSize: 11.5,
+                                    color: AppColors.muted,
+                                  ),
+                                ),
+                              ],
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            );
+
+            if (!isSuperAdmin) return mainInfo;
+
+            final actionButtons = Row(
+              mainAxisSize: isMobile ? MainAxisSize.max : MainAxisSize.min,
+              mainAxisAlignment:
+                  isMobile ? MainAxisAlignment.end : MainAxisAlignment.start,
+              children: [
+                TextButton.icon(
+                  style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    foregroundColor: AppColors.primary,
+                  ),
+                  onPressed: () => _showEditStaffModal(u),
+                  icon: const Icon(Icons.tune_rounded, size: 16),
+                  label: const Text('Edit / Role'),
+                ),
+                if (!isCurrentUser) ...[
+                  const SizedBox(width: 4),
+                  IconButton(
+                    visualDensity: VisualDensity.compact,
+                    tooltip: 'Delete Account',
+                    onPressed: () => _confirmAndDeleteUser(u),
+                    icon: const Icon(
+                      Icons.delete_outline_rounded,
+                      color: AppColors.error,
+                      size: 20,
+                    ),
+                  ),
+                ],
+              ],
+            );
+
+            if (isMobile) {
+              return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 4,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      Text(
-                        u.fullName,
-                        style: const TextStyle(
-                          fontSize: 15.5,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.text,
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: rColor.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          u.role.displayName.toUpperCase(),
-                          style: TextStyle(
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w800,
-                            color: rColor,
-                          ),
-                        ),
-                      ),
-                      if (!u.isActive)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.error.withValues(alpha: 0.14),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Text(
-                            'SUSPENDED',
-                            style: TextStyle(
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w800,
-                              color: AppColors.error,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    u.email,
-                    style: const TextStyle(
-                      fontSize: 12.5,
-                      color: AppColors.muted,
-                    ),
-                  ),
+                  mainInfo,
                   const SizedBox(height: 6),
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 4,
-                    children: [
-                      if (u.departmentName != null)
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.apartment_rounded,
-                              size: 14,
-                              color: AppColors.primary,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${u.departmentName}${u.position != null ? " • ${u.position}" : ""}',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.primaryDark,
-                              ),
-                            ),
-                          ],
-                        ),
-                      if (u.phoneNumber != null && u.phoneNumber!.isNotEmpty)
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.phone_outlined,
-                              size: 14,
-                              color: AppColors.muted,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              u.phoneNumber!,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: AppColors.muted,
-                              ),
-                            ),
-                          ],
-                        ),
-                      if (u.address != null && u.address!.isNotEmpty)
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.location_on_outlined,
-                              size: 14,
-                              color: AppColors.muted,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              u.address!,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: AppColors.muted,
-                              ),
-                            ),
-                          ],
-                        ),
-                    ],
-                  ),
+                  const Divider(height: 1),
+                  const SizedBox(height: 2),
+                  actionButtons,
                 ],
-              ),
-            ),
-            if (isSuperAdmin)
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    tooltip: 'Manage Role, Department & Access',
-                    onPressed: () => _showEditStaffModal(u),
-                    icon: const Icon(
-                      Icons.tune_rounded,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                  if (u.id != context.read<AuthProvider>().user?.id)
-                    IconButton(
-                      tooltip:
-                          'Delete ${u.isCitizen ? "Citizen" : "Staff"} Account',
-                      onPressed: () => _confirmAndDeleteUser(u),
-                      icon: const Icon(
-                        Icons.delete_outline_rounded,
-                        color: AppColors.error,
-                      ),
-                    ),
-                ],
-              ),
-          ],
+              );
+            }
+
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: mainInfo),
+                actionButtons,
+              ],
+            );
+          },
         ),
       ),
     );

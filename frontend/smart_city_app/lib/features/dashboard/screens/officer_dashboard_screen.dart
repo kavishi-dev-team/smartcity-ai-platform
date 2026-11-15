@@ -292,14 +292,19 @@ class _OfficerDashboardScreenState extends State<OfficerDashboardScreen> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text(
-                                  'Department & Domain Management',
-                                  style: TextStyle(
-                                    fontSize: 19,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppColors.text,
+                                const Expanded(
+                                  child: Text(
+                                    'Department & Domain Management',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.text,
+                                    ),
                                   ),
                                 ),
+                                const SizedBox(width: 8),
                                 TextButton.icon(
                                   onPressed: () =>
                                       setState(() => _selectedIndex = 1),
@@ -373,38 +378,91 @@ class _OfficerDashboardScreenState extends State<OfficerDashboardScreen> {
                             const SizedBox(height: 26),
 
                             // AI Priority Issues Section
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Expanded(
-                                  child: Text(
-                                    'AI Prioritized Issues Queue',
-                                    style: TextStyle(
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppColors.text,
+                            LayoutBuilder(
+                              builder: (context, constraints) {
+                                final isSmall = constraints.maxWidth < 460;
+
+                                return Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        const Expanded(
+                                          child: Text(
+                                            'AI Prioritized Issues Queue',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              fontSize: 19,
+                                              fontWeight: FontWeight.bold,
+                                              color: AppColors.text,
+                                            ),
+                                          ),
+                                        ),
+                                        if (!isSmall) ...[
+                                          TextButton.icon(
+                                            onPressed: () => _open(
+                                              const ComplaintClustersScreen(),
+                                            ),
+                                            icon: const Icon(
+                                              Icons.hub_outlined,
+                                              size: 16,
+                                            ),
+                                            label: const Text('Clusters'),
+                                          ),
+                                          TextButton.icon(
+                                            onPressed: () => _open(
+                                              const AIPrioritizedIssuesScreen(),
+                                            ),
+                                            icon: const Icon(
+                                              Icons.tune_rounded,
+                                              size: 16,
+                                            ),
+                                            label: const Text('Full Queue'),
+                                          ),
+                                        ],
+                                      ],
                                     ),
-                                  ),
-                                ),
-                                TextButton.icon(
-                                  onPressed: () =>
-                                      _open(const ComplaintClustersScreen()),
-                                  icon: const Icon(
-                                    Icons.hub_outlined,
-                                    size: 16,
-                                  ),
-                                  label: const Text('Clusters'),
-                                ),
-                                TextButton.icon(
-                                  onPressed: () =>
-                                      _open(const AIPrioritizedIssuesScreen()),
-                                  icon: const Icon(
-                                    Icons.tune_rounded,
-                                    size: 16,
-                                  ),
-                                  label: const Text('Full Queue'),
-                                ),
-                              ],
+                                    if (isSmall)
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.end,
+                                        children: [
+                                          TextButton.icon(
+                                            style: TextButton.styleFrom(
+                                              visualDensity:
+                                                  VisualDensity.compact,
+                                            ),
+                                            onPressed: () => _open(
+                                              const ComplaintClustersScreen(),
+                                            ),
+                                            icon: const Icon(
+                                              Icons.hub_outlined,
+                                              size: 15,
+                                            ),
+                                            label: const Text('Clusters'),
+                                          ),
+                                          TextButton.icon(
+                                            style: TextButton.styleFrom(
+                                              visualDensity:
+                                                  VisualDensity.compact,
+                                            ),
+                                            onPressed: () => _open(
+                                              const AIPrioritizedIssuesScreen(),
+                                            ),
+                                            icon: const Icon(
+                                              Icons.tune_rounded,
+                                              size: 15,
+                                            ),
+                                            label: const Text('Full Queue'),
+                                          ),
+                                        ],
+                                      ),
+                                  ],
+                                );
+                              },
                             ),
                             const SizedBox(height: 4),
                             const Text(
@@ -477,154 +535,177 @@ class _OfficerDashboardScreenState extends State<OfficerDashboardScreen> {
     final auth = context.watch<AuthProvider>();
     final user = auth.user;
 
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
-      decoration: BoxDecoration(
-        gradient: AppColors.brandGradient,
-        border: Border(
-          bottom: BorderSide(
-            color: AppColors.skyBlue.withValues(alpha: 0.45),
-            width: 2,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isSmall = constraints.maxWidth < 400;
+
+        return Container(
+          padding: EdgeInsets.fromLTRB(
+            isSmall ? 16 : 20,
+            isSmall ? 14 : 18,
+            isSmall ? 16 : 20,
+            isSmall ? 18 : 24,
           ),
-        ),
-      ),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 960),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+          decoration: BoxDecoration(
+            gradient: AppColors.brandGradient,
+            border: Border(
+              bottom: BorderSide(
+                color: AppColors.skyBlue.withValues(alpha: 0.45),
+                width: 2,
+              ),
+            ),
+          ),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 960),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.18),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: const Icon(
-                      Icons.admin_panel_settings_rounded,
-                      color: Colors.white,
-                      size: 28,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'SMART CITY',
-                          style: TextStyle(
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(9),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.18),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.admin_panel_settings_rounded,
+                          color: Colors.white,
+                          size: 24,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'SMART CITY',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16.5,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1.1,
+                              ),
+                            ),
+                            Text(
+                              _portalSubtitle(user?.role),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 11.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        visualDensity: VisualDensity.compact,
+                        tooltip: 'Notifications',
+                        onPressed: () => _open(const NotificationsScreen()),
+                        icon: Badge(
+                          isLabelVisible: _unreadCount > 0,
+                          label: Text('$_unreadCount'),
+                          child: const Icon(
+                            Icons.notifications_none_rounded,
                             color: Colors.white,
-                            fontSize: 17,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.2,
+                            size: 24,
                           ),
                         ),
-                        Text(
-                          _portalSubtitle(user?.role),
+                      ),
+                      InkWell(
+                        borderRadius: BorderRadius.circular(20),
+                        onTap: () {
+                          final r = context.read<AuthProvider>().user?.role;
+                          final hasStaffTab = r == UserRole.superAdmin ||
+                              r == UserRole.cityManager;
+                          setState(() => _selectedIndex = hasStaffTab ? 4 : 3);
+                        },
+                        child: CircleAvatar(
+                          radius: 17,
+                          backgroundColor: Colors.white.withValues(alpha: 0.22),
+                          child: const Icon(
+                            Icons.person_outline,
+                            color: Colors.white,
+                            size: 19,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 2),
+                      IconButton(
+                        visualDensity: VisualDensity.compact,
+                        tooltip: 'Logout',
+                        onPressed: () => context.read<AuthProvider>().logout(),
+                        icon: const Icon(
+                          Icons.logout_rounded,
+                          color: Colors.white,
+                          size: 21,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Welcome, ${user?.fullName ?? "Officer"}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 19,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              user?.email ?? 'staff@smartcity-dev.com',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 12.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Text(
+                          user?.role.displayName.toUpperCase() ?? 'STAFF',
                           style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 12,
+                            color: Colors.white,
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.5,
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: 'Notifications',
-                    onPressed: () => _open(const NotificationsScreen()),
-                    icon: Badge(
-                      isLabelVisible: _unreadCount > 0,
-                      label: Text('$_unreadCount'),
-                      child: const Icon(
-                        Icons.notifications_none_rounded,
-                        color: Colors.white,
-                        size: 26,
                       ),
-                    ),
-                  ),
-                  InkWell(
-                    borderRadius: BorderRadius.circular(20),
-                    onTap: () {
-                      final r = context.read<AuthProvider>().user?.role;
-                      final hasStaffTab = r == UserRole.superAdmin ||
-                          r == UserRole.cityManager;
-                      setState(() => _selectedIndex = hasStaffTab ? 4 : 3);
-                    },
-                    child: CircleAvatar(
-                      radius: 19,
-                      backgroundColor: Colors.white.withValues(alpha: 0.22),
-                      child: const Icon(
-                        Icons.person_outline,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  IconButton(
-                    tooltip: 'Logout',
-                    onPressed: () => context.read<AuthProvider>().logout(),
-                    icon: const Icon(
-                      Icons.logout_rounded,
-                      color: Colors.white,
-                      size: 23,
-                    ),
+                    ],
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Welcome, ${user?.fullName ?? "Officer"}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 21,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          user?.email ?? 'staff@smartcity-dev.com',
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      user?.role.displayName.toUpperCase() ?? 'STAFF',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 0.6,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -632,183 +713,222 @@ class _OfficerDashboardScreenState extends State<OfficerDashboardScreen> {
     final user = context.watch<AuthProvider>().user;
     final role = user?.role ?? UserRole.departmentOfficer;
 
-    if (role == UserRole.superAdmin) {
-      return Container(
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [AppColors.navy, AppColors.primary],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(18),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.navy.withValues(alpha: 0.18),
-              blurRadius: 14,
-              offset: const Offset(0, 5),
-            ),
-          ],
-        ),
-        child: Wrap(
-          alignment: WrapAlignment.spaceBetween,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          spacing: 12,
-          runSpacing: 12,
-          children: [
-            const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.security_rounded,
-                  color: AppColors.skyBlue,
-                  size: 32,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isSmall = constraints.maxWidth < 500;
+
+        if (role == UserRole.superAdmin) {
+          final info = Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(
+                Icons.security_rounded,
+                color: AppColors.skyBlue,
+                size: 28,
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Super Admin Full Access & Staff Control',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 15.5,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    SizedBox(height: 3),
+                    Text(
+                      'Register Department Officers & City Managers, assign departments, and manage role permissions.',
+                      style: TextStyle(
+                        color: AppColors.lightBlue,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
                 ),
-                SizedBox(width: 12),
-                Flexible(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+              ),
+            ],
+          );
+
+          final btn = ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: AppColors.navy,
+              padding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 10,
+              ),
+            ),
+            onPressed: () => _open(const StaffManagementScreen()),
+            icon: const Icon(Icons.person_add_alt_1_rounded, size: 18),
+            label: const Text(
+              'Manage Officers & Roles',
+              style: TextStyle(fontWeight: FontWeight.w800),
+            ),
+          );
+
+          return Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [AppColors.navy, AppColors.primary],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(18),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.navy.withValues(alpha: 0.18),
+                  blurRadius: 14,
+                  offset: const Offset(0, 5),
+                ),
+              ],
+            ),
+            child: isSmall
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Text(
-                        'Super Admin Full Access & Staff Provisioning',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      SizedBox(height: 3),
-                      Text(
-                        'Register Department Officers & City Managers, assign departments, and manage role permissions.',
-                        style: TextStyle(
-                          color: AppColors.lightBlue,
-                          fontSize: 12,
-                        ),
-                      ),
+                      info,
+                      const SizedBox(height: 12),
+                      btn,
+                    ],
+                  )
+                : Row(
+                    children: [
+                      Expanded(child: info),
+                      const SizedBox(width: 12),
+                      btn,
                     ],
                   ),
-                ),
-              ],
-            ),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: AppColors.navy,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 11,
-                ),
-              ),
-              onPressed: () => _open(const StaffManagementScreen()),
-              icon: const Icon(Icons.person_add_alt_1_rounded, size: 18),
-              label: const Text(
-                'Manage Officers & Roles',
-                style: TextStyle(fontWeight: FontWeight.w800),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
+          );
+        }
 
-    if (role == UserRole.cityManager) {
-      return Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AppColors.card,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(12),
+        if (role == UserRole.cityManager) {
+          final info = Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.account_balance_rounded,
+                  color: AppColors.primary,
+                  size: 22,
+                ),
               ),
-              child: const Icon(
-                Icons.account_balance_rounded,
-                color: AppColors.primary,
-                size: 24,
-              ),
-            ),
-            const SizedBox(width: 12),
-            const Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'City Manager Executive Access',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.text,
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'City Manager Executive Access',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.text,
+                      ),
                     ),
-                  ),
-                  SizedBox(height: 2),
-                  Text(
-                    'Cross-department SLA oversight, issue routing, safety alerts, and municipal staff directory.',
-                    style: TextStyle(fontSize: 12, color: AppColors.muted),
-                  ),
-                ],
+                    SizedBox(height: 2),
+                    Text(
+                      'Cross-department SLA oversight, issue routing, safety alerts, and municipal staff directory.',
+                      style: TextStyle(fontSize: 12, color: AppColors.muted),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            OutlinedButton.icon(
-              onPressed: () => _open(const StaffManagementScreen()),
-              icon: const Icon(Icons.groups_rounded, size: 17),
-              label: const Text('Staff Directory'),
-            ),
-          ],
-        ),
-      );
-    }
+            ],
+          );
 
-    // Department Officer operational scope card
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
+          final btn = OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            ),
+            onPressed: () => _open(const StaffManagementScreen()),
+            icon: const Icon(Icons.groups_rounded, size: 17),
+            label: const Text('Staff Directory'),
+          );
+
+          return Container(
+            padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: AppColors.cyan.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(12),
+              color: AppColors.card,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.border),
             ),
-            child: const Icon(
-              Icons.engineering_rounded,
-              color: AppColors.cyan,
-              size: 24,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Department Officer Operations${user?.departmentName != null ? " • ${user!.departmentName}" : ""}',
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.text,
+            child: isSmall
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      info,
+                      const SizedBox(height: 10),
+                      btn,
+                    ],
+                  )
+                : Row(
+                    children: [
+                      Expanded(child: info),
+                      const SizedBox(width: 12),
+                      btn,
+                    ],
                   ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '${user?.position ?? "Field & Case Officer"} — Inspect assigned cases, update field statuses (Assigned → In Progress → Resolved), and post citizen updates.',
-                  style: const TextStyle(fontSize: 12, color: AppColors.muted),
-                ),
-              ],
-            ),
+          );
+        }
+
+        // Department Officer operational scope card
+        return Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: AppColors.card,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.border),
           ),
-        ],
-      ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.cyan.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.engineering_rounded,
+                  color: AppColors.cyan,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Department Officer Operations${user?.departmentName != null ? " • ${user!.departmentName}" : ""}',
+                      style: const TextStyle(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.text,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${user?.position ?? "Field & Case Officer"} — Inspect assigned cases, update field statuses (Assigned → In Progress → Resolved), and post citizen updates.',
+                      style: const TextStyle(fontSize: 12, color: AppColors.muted),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -2018,46 +2138,71 @@ class _OfficerDashboardScreenState extends State<OfficerDashboardScreen> {
     required bool isSuperAdmin,
     required int safeIndex,
   }) {
-    return NavigationBar(
-      selectedIndex: safeIndex,
-      onDestinationSelected: (index) {
-        setState(() {
-          _selectedIndex = index;
-        });
-      },
-      backgroundColor: AppColors.card,
-      indicatorColor: AppColors.lightBlue,
-      destinations: [
-        const NavigationDestination(
-          icon: Icon(Icons.dashboard_outlined),
-          selectedIcon: Icon(Icons.dashboard, color: AppColors.primary),
-          label: 'Dashboard',
-        ),
-        const NavigationDestination(
-          icon: Icon(Icons.apps_outlined),
-          selectedIcon: Icon(Icons.apps, color: AppColors.primary),
-          label: 'Operations',
-        ),
-        const NavigationDestination(
-          icon: Icon(Icons.analytics_outlined),
-          selectedIcon: Icon(Icons.analytics, color: AppColors.primary),
-          label: 'Analytics',
-        ),
-        if (canViewStaffDirectory)
-          NavigationDestination(
-            icon: const Icon(Icons.admin_panel_settings_outlined),
-            selectedIcon: const Icon(
-              Icons.admin_panel_settings_rounded,
-              color: AppColors.primary,
-            ),
-            label: isSuperAdmin ? 'Staff & Roles' : 'Staff',
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isCompact = screenWidth < 380;
+
+    return NavigationBarTheme(
+      data: NavigationBarThemeData(
+        height: isCompact ? 62 : 68,
+        labelTextStyle: WidgetStateProperty.resolveWith((states) {
+          final isSelected = states.contains(WidgetState.selected);
+          return TextStyle(
+            fontSize: isCompact ? 10.5 : 11.5,
+            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+            color: isSelected ? AppColors.primary : AppColors.muted,
+          );
+        }),
+        iconTheme: WidgetStateProperty.resolveWith((states) {
+          final isSelected = states.contains(WidgetState.selected);
+          return IconThemeData(
+            size: isCompact ? 20 : 22,
+            color: isSelected ? AppColors.primary : AppColors.muted,
+          );
+        }),
+      ),
+      child: NavigationBar(
+        selectedIndex: safeIndex,
+        onDestinationSelected: (index) {
+          setState(() {
+            _selectedIndex = index;
+          });
+        },
+        backgroundColor: AppColors.card,
+        indicatorColor: AppColors.lightBlue,
+        elevation: 3,
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+        destinations: [
+          const NavigationDestination(
+            icon: Icon(Icons.dashboard_outlined),
+            selectedIcon: Icon(Icons.dashboard, color: AppColors.primary),
+            label: 'Home',
           ),
-        const NavigationDestination(
-          icon: Icon(Icons.person_outline),
-          selectedIcon: Icon(Icons.person, color: AppColors.primary),
-          label: 'Profile',
-        ),
-      ],
+          const NavigationDestination(
+            icon: Icon(Icons.apps_outlined),
+            selectedIcon: Icon(Icons.apps, color: AppColors.primary),
+            label: 'Ops',
+          ),
+          const NavigationDestination(
+            icon: Icon(Icons.analytics_outlined),
+            selectedIcon: Icon(Icons.analytics, color: AppColors.primary),
+            label: 'Analytics',
+          ),
+          if (canViewStaffDirectory)
+            const NavigationDestination(
+              icon: Icon(Icons.admin_panel_settings_outlined),
+              selectedIcon: Icon(
+                Icons.admin_panel_settings_rounded,
+                color: AppColors.primary,
+              ),
+              label: 'Staff',
+            ),
+          const NavigationDestination(
+            icon: Icon(Icons.person_outline),
+            selectedIcon: Icon(Icons.person, color: AppColors.primary),
+            label: 'Profile',
+          ),
+        ],
+      ),
     );
   }
 }

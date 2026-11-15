@@ -88,46 +88,53 @@ class _AnalyticsStatisticsScreenState
                   ),
                   const SizedBox(height: 12),
 
-                  GridView.count(
-                    crossAxisCount:
-                        MediaQuery.of(context).size.width > 700 ? 4 : 2,
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    crossAxisSpacing: 10,
-                    mainAxisSpacing: 10,
-                    childAspectRatio: 1.35,
-                    children: [
-                      StatisticsCard(
-                        title: 'Total Issues',
-                        value: overview.totalIssues,
-                        icon: Icons.assignment_outlined,
-                        color: AppColors.primary,
-                      ),
-                      StatisticsCard(
-                        title: 'Pending',
-                        value: overview.pendingIssues,
-                        icon: Icons.pending_actions,
-                        color: AppColors.warning,
-                      ),
-                      StatisticsCard(
-                        title: 'In Progress',
-                        value: overview.inProgressIssues,
-                        icon: Icons.sync,
-                        color: AppColors.cyan,
-                      ),
-                      StatisticsCard(
-                        title: 'Resolved',
-                        value: overview.resolvedIssues,
-                        icon: Icons.check_circle_outline,
-                        color: AppColors.success,
-                      ),
-                      StatisticsCard(
-                        title: 'High Priority',
-                        value: overview.highPriorityIssues,
-                        icon: Icons.priority_high,
-                        color: AppColors.error,
-                      ),
-                    ],
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final width = constraints.maxWidth;
+                      final cols = width > 720 ? 4 : (width < 320 ? 1 : 2);
+                      final ratio = width < 360 ? 1.15 : (width < 600 ? 1.25 : 1.35);
+
+                      return GridView.count(
+                        crossAxisCount: cols,
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        crossAxisSpacing: 10,
+                        mainAxisSpacing: 10,
+                        childAspectRatio: ratio,
+                        children: [
+                          StatisticsCard(
+                            title: 'Total Issues',
+                            value: overview.totalIssues,
+                            icon: Icons.assignment_outlined,
+                            color: AppColors.primary,
+                          ),
+                          StatisticsCard(
+                            title: 'Pending',
+                            value: overview.pendingIssues,
+                            icon: Icons.pending_actions,
+                            color: AppColors.warning,
+                          ),
+                          StatisticsCard(
+                            title: 'In Progress',
+                            value: overview.inProgressIssues,
+                            icon: Icons.sync,
+                            color: AppColors.cyan,
+                          ),
+                          StatisticsCard(
+                            title: 'Resolved',
+                            value: overview.resolvedIssues,
+                            icon: Icons.check_circle_outline,
+                            color: AppColors.success,
+                          ),
+                          StatisticsCard(
+                            title: 'High Priority',
+                            value: overview.highPriorityIssues,
+                            icon: Icons.priority_high,
+                            color: AppColors.error,
+                          ),
+                        ],
+                      );
+                    },
                   ),
 
                   const SizedBox(height: 26),
